@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hemophilia HCP Insights Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Energetic Oranges -->
+    <!-- Application Structure Plan: The application is designed as a multi-tab dashboard. This structure was chosen to logically segment the diverse qualitative insights into thematic areas, making the information easier to digest than a single, long report. The user starts with a high-level 'Overview', then can dive into specific areas like 'Therapy Landscape', 'Clinical Practice', or 'Education'. An 'All Insights Explorer' tab is included for granular, searchable access to the raw data. This non-linear, task-oriented approach allows users to explore based on their specific questions, enhancing usability and discovery. Key interactions include tab-based navigation, dynamic charts, and real-time filtering/searching, which facilitate a fluid exploration of HCP feedback. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Insight counts & timeline. Goal: Inform. Viz: KPI cards & a bar chart (Chart.js). Interaction: Hover on chart bars. Justification: Provides a quick, quantitative summary of the dataset's scope.
+        - Report Info: Common topics in insight titles. Goal: Organize. Viz: Horizontal bar chart (Chart.js). Interaction: Hover. Justification: Clearly shows key themes and their frequency, more readable than a word cloud.
+        - Report Info: Feedback on specific therapies. Goal: Compare/Organize. Viz: Donut chart (Chart.js) and filterable insight cards (HTML/JS). Interaction: Clicking therapy buttons updates both chart and cards. Justification: Allows direct comparison and deep-diving into sentiments and comments regarding specific treatments.
+        - Report Info: Detailed qualitative feedback. Goal: Organize/Inform. Viz: Searchable and filterable table/list (HTML/JS). Interaction: Text search and dropdown filtering. Justification: Provides powerful, direct access to the raw data for users needing to find specific comments or HCP feedback. 
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #4A4A4A;
+        }
+        .nav-button {
+            transition: all 0.3s ease;
+            color: #6B7280;
+        }
+        .nav-button.active {
+            color: #F97316;
+            border-bottom-color: #F97316;
+        }
+        .nav-button:hover {
+            color: #F97316;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #F3F4F6;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        }
+        .kpi-card {
+            background-color: #FFFFFF;
+            border-radius: 0.75rem;
+            border: 1px solid #F3F4F6;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            padding: 1.5rem;
+            text-align: center;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 450px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .filter-button {
+            transition: all 0.2s ease-in-out;
+            background-color: #F3F4F6;
+            color: #4A4A4A;
+        }
+        .filter-button.active, .filter-button:hover {
+            background-color: #F97316;
+            color: #FFFFFF;
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-[#F97316] tracking-tight">Hemophilia HCP Insights Dashboard</h1>
+            <p class="mt-2 text-lg text-gray-600">An interactive analysis of 191 field insights from Healthcare Professionals in Canada.</p>
+        </header>
+
+        <nav class="mb-8 border-b border-gray-200">
+            <div class="flex justify-center -mb-px space-x-6">
+                <button class="nav-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="overview">
+                    <span class="mr-2">📊</span>Overview
+                </button>
+                <button class="nav-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="therapy">
+                    <span class="mr-2">💊</span>Therapy Landscape
+                </button>
+                <button class="nav-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="practice">
+                    <span class="mr-2">🩺</span>Clinical Practice & Needs
+                </button>
+                <button class="nav-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="education">
+                    <span class="mr-2">🎓</span>Education & Engagement
+                </button>
+                <button class="nav-button whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" data-tab="explorer">
+                    <span class="mr-2">🔍</span>All Insights Explorer
+                </button>
+            </div>
+        </nav>
+
+        <main id="content-area">
+        </main>
+    </div>
+
+    <template id="overview-template">
+        <section class="space-y-12">
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Dashboard Overview</h2>
+                <p class="mt-1 text-gray-600">High-level summary of the collected field intelligence.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="total-insights"></div>
+                    <p class="text-gray-500 mt-1">Total Insights</p>
+                </div>
+                <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="unique-hcps"></div>
+                    <p class="text-gray-500 mt-1">Unique HCPs</p>
+                </div>
+                <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="unique-hcos"></div>
+                    <p class="text-gray-500 mt-1">Unique HCOs</p>
+                </div>
+                 <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="time-period"></div>
+                    <p class="text-gray-500 mt-1">Time Period</p>
+                </div>
+            </div>
+            <div class="card p-6">
+                <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">Insights by Month</h3>
+                <p class="text-center text-gray-500 mb-6">This chart displays the volume of insights captured over time, providing a view of when field intelligence activity was highest. All insights were recorded in 2025.</p>
+                <div class="chart-container">
+                    <canvas id="insightsByMonthChart"></canvas>
+                </div>
+            </div>
+            <div class="card p-6">
+                 <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">Top Insight Topics</h3>
+                 <p class="text-center text-gray-500 mb-6">This chart shows the frequency of key topics mentioned in the titles of the insights, highlighting the most discussed subjects among HCPs.</p>
+                <div class="chart-container">
+                    <canvas id="topTopicsChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </template>
+
+    <template id="therapy-template">
+        <section class="space-y-12">
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Therapy Landscape</h2>
+                <p class="mt-1 text-gray-600">HCP feedback on specific treatments. Click a button to filter the insights and update the chart.</p>
+            </div>
+            <div class="flex justify-center flex-wrap gap-3 mb-6" id="therapy-filters">
+                <button class="filter-button font-medium py-2 px-4 rounded-full" data-therapy="All">All Therapies</button>
+                <button class="filter-button font-medium py-2 px-4 rounded-full" data-therapy="Emicizumab">Emicizumab / Hemlibra</button>
+                <button class="filter-button font-medium py-2 px-4 rounded-full" data-therapy="Altuviiio">Altuviiio</button>
+                <button class="filter-button font-medium py-2 px-4 rounded-full" data-therapy="Gene Therapy">Gene Therapy</button>
+                <button class="filter-button font-medium py-2 px-4 rounded-full" data-therapy="Mim8">Mim8</button>
+                <button class="filter-button font-medium py-2 px-4 rounded-full" data-therapy="Switching">Switching</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="therapy-kpi-container">
+                <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="therapy-total-insights"></div>
+                    <p class="text-gray-500 mt-1">Total Insights</p>
+                </div>
+                <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="therapy-unique-hcps"></div>
+                    <p class="text-gray-500 mt-1">Unique HCPs</p>
+                </div>
+                <div class="kpi-card">
+                    <div class="text-4xl font-bold text-[#F97316]" id="therapy-unique-hcos"></div>
+                    <p class="text-gray-500 mt-1">Unique HCOs</p>
+                </div>
+            </div>
+             <div class="card p-6">
+                <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">Thematic Analysis of Therapy Insights</h3>
+                <p class="text-center text-gray-500 mb-6">This chart categorizes the selected therapy insights into broad themes like clinical use, competition, or data requests to provide a quick overview of the discussion context.</p>
+                <div class="chart-container h-80 max-h-[400px]">
+                    <canvas id="therapy-sentiment-chart"></canvas>
+                </div>
+            </div>
+            <div id="therapy-insights-grid" class="flex flex-wrap gap-6" style="align-items: stretch;"></div>
+        </section>
+    </template>
+    
+    <template id="practice-template">
+        <section class="space-y-8">
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Clinical Practice & Unmet Needs</h2>
+                <p class="mt-1 text-gray-600">Key themes related to patient management, treatment guidelines, and identified gaps in care or data.</p>
+            </div>
+            <div class="space-y-4" id="practice-accordion">
+                <!-- Accordion items will be generated here -->
+            </div>
+        </section>
+    </template>
+
+    <template id="education-template">
+        <section class="space-y-12">
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold text-gray-800">Education & Engagement</h2>
+                <p class="mt-1 text-gray-600">Insights related to HCP educational needs, conference attendance, and collaboration preferences.</p>
+            </div>
+             <div class="card p-6">
+                 <h3 class="text-xl font-semibold text-center text-gray-700 mb-4">Educational Preferences</h3>
+                 <p class="text-center text-gray-500 mb-6">HCPs have expressed clear preferences for educational formats, strongly favoring interactive, case-based learning over traditional presentations.</p>
+                 <ul class="list-disc list-inside text-gray-600 max-w-2xl mx-auto space-y-2">
+                    <li><strong>Case-Based Learning:</strong> Multiple HCPs suggested future preceptorships should focus more on real patient cases to allow for robust discussion and learning from shared experiences.</li>
+                    <li><strong>Small Groups:</strong> A preference for small group settings (1:1 or 2:1) was noted to facilitate more in-depth, hands-on learning, especially for Nurse Practitioners (NPs).</li>
+                    <li><strong>Reduced Presentations:</strong> Feedback indicates a desire for fewer slide presentations in favor of more interactive formats.</li>
+                    <li><strong>Matched Experience Levels:</strong> A suggestion was made to match participants by their level of experience with a treatment (e.g., emicizumab) to improve the relevance of discussions.</li>
+                </ul>
+            </div>
+            <div class="card p-6">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Conference & Event Insights</h3>
+                <div id="education-insights-list" class="space-y-4"></div>
+            </div>
+        </section>
+    </template>
+
+    <template id="explorer-template">
+       <section class="space-y-6">
+            <div class="text-center">
+                <h2 class="text-2xl font-semibold text-gray-800">All Insights Explorer</h2>
+                <p class="mt-1 text-gray-600">Search, filter, and review all 191 raw insights from the field.</p>
+            </div>
+            <div class="card p-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="text" id="search-input" placeholder="🔍 Search by keyword..." class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#F97316] focus:border-[#F97316]">
+                    <select id="hcp-filter" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#F97316] focus:border-[#F97316]">
+                        <option value="">Filter by HCP</option>
+                    </select>
+                    <select id="hco-filter" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[#F97316] focus:border-[#F97316]">
+                        <option value="">Filter by HCO</option>
+                    </select>
+                </div>
+            </div>
+            <div id="explorer-count" class="text-center text-gray-600 font-medium"></div>
+            <div id="explorer-list" class="space-y-4"></div>
+        </section>
+    </template>
+
+    <template id="insight-card-template">
+        <div class="card p-4 flex flex-col h-full w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]">
+            <h4 class="font-bold text-md text-[#F97316] mb-2 flex-shrink-0"></h4>
+            <p class="text-sm text-gray-600 flex-grow mb-3"></p>
+            <div class="mt-auto pt-3 border-t border-gray-100 flex-shrink-0">
+                <p class="text-xs text-gray-500"><strong class="font-medium">HCP:</strong> <span class="hcp"></span></p>
+                <p class="text-xs text-gray-500"><strong class="font-medium">Date:</strong> <span class="date"></span></p>
+            </div>
+        </div>
+    </template>
+
+    <template id="accordion-item-template">
+        <div>
+            <button class="w-full text-left p-4 bg-white hover:bg-gray-50 border rounded-lg shadow-sm flex justify-between items-center">
+                <span class="font-semibold text-lg text-gray-700"></span>
+                <span class="transform transition-transform duration-200 text-[#F97316] text-2xl font-light">+</span>
+            </button>
+            <div class="hidden p-4 mt-1 border rounded-lg bg-white">
+                 <div class="summary mb-4 prose prose-sm max-w-none text-gray-600"></div>
+                 <div class="insights-container space-y-3"></div>
+            </div>
+        </div>
+    </template>
+
+<script>
+const tsvData = `id	data source	country name	created by table	created date	hco account	hcp account	text translated	text	title translated	title	region	disease
+1	crm_insights	Canada	Laura Pepler	2025-09-04	--Unspecified--	Ms Vanessa Bouskill	indicated they are not using emicizumab in patients with >10% fviii currently. data in this population is helpful to better understand the potential emicizumab could have and agreed emicizumab could provide benefit when consumption of endogenous fviii occurs during bleed. challenge is knowing which patients could benefit and underlying reasons for bleeds - data that would show emicizumab increasing fviii-like activity >10% (i.e. emicizumab increases hemostatic potential) in a mild patient would be convincing.	indicated they are not using emicizumab in patients with >10% fviii currently. data in this population is helpful to better understand the potential emicizumab could have and agreed emicizumab could provide benefit when consumption of endogenous fviii occurs during bleed. challenge is knowing which patients could benefit and underlying reasons for bleeds - data that would show emicizumab increasing fviii-like activity >10% (i.e. emicizumab increases hemostatic potential) in a mild patient would be convincing.	emicizumab use in mild hemophilia a patients	emicizumab use in mild hemophilia a patients	International 8	Hemophilia
+2	crm_insights	Canada	Laura Pepler	2025-09-04	--Unspecified--	Ms Vanessa Bouskill	indicated she is planning to attend isth 2026 and will be requesting support. they will be looking to submit data on young women with bleeding disorders to the conference.	indicated she is planning to attend isth 2026 and will be requesting support. they will be looking to submit data on young women with bleeding disorders to the conference.	conference attendence	conference attendence	International 8	Hemophilia
+3	crm_insights	Canada	Laura Pepler	2025-09-04	--Unspecified--	Ms Vanessa Bouskill	prefers small groups 1:1 or 2:1 with focus on real hands-on cases. educational needs of nps are different and require more in depth knowledge of treatments. canhc educational meetings are broad and  indicated the value of an initiative directed for nps that is more in depth.	prefers small groups 1:1 or 2:1 with focus on real hands-on cases. educational needs of nps are different and require more in depth knowledge of treatments. canhc educational meetings are broad and  indicated the value of an initiative directed for nps that is more in depth.	preceptorships	preceptorships	International 8	Hemophilia
+4	crm_insights	Canada	Sadaf Mohseni	2025-08-27	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	expressed interest in working with roche on upcoming research initiatives in hemostasis. follow up with medical during ad board in late aug.	expressed interest in working with roche on upcoming research initiatives in hemostasis. follow up with medical during ad board in late aug.	interest in pursuing funding for grant	interest in pursuing funding for grant	International 8	Hemophilia
+5	crm_insights	Canada	Sadaf Mohseni	2025-08-27	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	expressed that his current fviii patients will likely switch over to altuviiio however he cannot see too many hemlibra patients switching. he could think of 2 or 3 who may want to go back to seeing peak and trough levels for physical activity	expressed that his current fviii patients will likely switch over to altuviiio however he cannot see too many hemlibra patients switching. he could think of 2 or 3 who may want to go back to seeing peak and trough levels for physical activity	altuviiio switching	altuviiio switching	International 8	Hemophilia
+6	crm_insights	Canada	Sadaf Mohseni	2025-08-27	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	considering to attend ash for 2 days in dec however has not currently booked/ seeked funding	considering to attend ash for 2 days in dec however has not currently booked/ seeked funding	considering to attend ash for 2 days	considering to attend ash for 2 days	International 8	Hemophilia
+7	crm_insights	Canada	Sadaf Mohseni	2025-08-27	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Chai W Phua, Dr Soumitra S Tole, Ms Rebecca Arcieri	london administers factor pre-surgery for all minor surgeries. comfort with their management of patients on hemlibra.	london administers factor pre-surgery for all minor surgeries. comfort with their management of patients on hemlibra.	discussion around surgery management	discussion around surgery management	International 8	Hemophilia
+8	crm_insights	Canada	Sadaf Mohseni	2025-08-27	--Unspecified--	Ms Vanessa Bouskill	expressed positive feedback regarding hemlibra patient resources sent for on camp. will reproduce for 2026	expressed positive feedback regarding hemlibra patient resources sent for on camp. will reproduce for 2026	satisfied with hemlibra resources	satisfied with hemlibra resources	International 8	Hemophilia
+9	crm_insights	Canada	Sadaf Mohseni	2025-08-27	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Ms Rebecca Arcieri	filling in until november, at which point thunnissa will return from extended mat leave.	filling in until november, at which point thunnissa will return from extended mat leave.	london nurse changeover	london nurse changeover	International 8	Hemophilia
+10	crm_insights	Canada	Sadaf Mohseni	2025-08-27	Children's Hospital of Eastern Ontario	Ms Heather Perkins	no response from  in recent months. may be on leave	no response from  in recent months. may be on leave	no response	no response	International 8	Hemophilia
+11	crm_insights	Canada	Laura Pepler	2025-08-22	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  indicated he would like to be updated on new data for spk-8011qq	dr.  indicated he would like to be updated on new data for spk-8011qq	standing request: gene therapy spk-8011qq	standing request: gene therapy spk-8011qq	International 8	Hemophilia
+12	crm_insights	Canada	Laura Pepler	2025-08-22	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr  is planning to attend ash 2025	dr  is planning to attend ash 2025	ash attendence	ash attendence	International 8	Hemophilia
+13	crm_insights	Canada	Laura Pepler	2025-08-22	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  does follow the updates in the gene therapy space and indicated he wants to stay updated on new information as it becomes available	dr.  does follow the updates in the gene therapy space and indicated he wants to stay updated on new information as it becomes available	interest in gene therapy	interest in gene therapy	International 8	Hemophilia
+14	crm_insights	Canada	Laura Pepler	2025-08-22	--Unspecified--	Sarah Ford	chs & mcmaster is doing a research project to collect quality of life economic burden data across all bleeding disorders, all ages and severities which will serve as baseline against future data collection. this project will also support the identification of where the needs are.	chs & mcmaster is doing a research project to collect quality of life economic burden data across all bleeding disorders, all ages and severities which will serve as baseline against future data collection. this project will also support the identification of where the needs are.	chs qol and economic burden project with mcmaster	chs qol and economic burden project with mcmaster	International 8	Hemophilia
+15	crm_insights	Canada	Laura Pepler	2025-08-18	--Unspecified--	Sarah Ford	chs novel therapies review committee indicate that mim8 may provided better bleed protection. they acknowledge that this has not been demonstrated in long-term clinical trials - clinically, mim8 is not differentiated from emciziumab but there is the perception based on fviii equivalence data that is could provide better bleed protection by the community.	chs novel therapies review committee indicate that mim8 may provided better bleed protection. they acknowledge that this has not been demonstrated in long-term clinical trials - clinically, mim8 is not differentiated from emciziumab but there is the perception based on fviii equivalence data that is could provide better bleed protection by the community.	mim8 bleed protection	mim8 bleed protection	International 8	Hemophilia
+16	crm_insights	Canada	Sheri vanGunst	2025-08-18	Alberta Children's Hospital	Ms Nicola K (Nikki) Guilcher	nikki advised that they have been starting several new patients on hemlibra recently including patients with moderate hemophilia as well as patients with type 3 von willebrand disease	nikki advised that they have been starting several new patients on hemlibra recently including patients with moderate hemophilia as well as patients with type 3 von willebrand disease	hemlibra use	hemlibra use	International 8	Hemophilia
+17	crm_insights	Canada	Laura Pepler	2025-08-18	--Unspecified--	Sarah Ford	the novel therapies review committee indicated a fviii level above 40% for most of the week and as high as emicizumab the rest of the week provides betterbleed protection. hcps indicated they want people with hemophilia to be able to engage in the activities that they want and they worry clinically about activities associated with higher bleeding risk. hcps are not aware of any published data that does not support the use of altuviiio for riskier activities or contactsports. - maic which compares efa and emicizumab was used to support this position. roche team needs to have a better understanding this data and it's limitation when engaging on this topic	the novel therapies review committee indicated a fviii level above 40% for most of the week and as high as emicizumab the rest of the week provides betterbleed protection. hcps indicated they want people with hemophilia to be able to engage in the activities that they want and they worry clinically about activities associated with higher bleeding risk. hcps are not aware of any published data that does not support the use of altuviiio for riskier activities or contactsports. - maic which compares efa and emicizumab was used to support this position. roche team needs to have a better understanding this data and it's limitation when engaging on this topic	fviii levels and physcial activity	fviii levels and physcial activity	International 8	Hemophilia
+18	crm_insights	Canada	Laura Pepler	2025-08-18	--Unspecified--	Sarah Ford	novel therapies review committee indicated that patients on sc injections may lose iv skills. although it is acknowledged that this is not based on data/evidence it is based on qualitative feedback from many hcps and the discussion occurs a lot. - important that hcps know roche's psp can support iv refresh training and have tools to support patients so these skills remain fresh.	novel therapies review committee indicated that patients on sc injections may lose iv skills. although it is acknowledged that this is not based on data/evidence it is based on qualitative feedback from many hcps and the discussion occurs a lot. - important that hcps know roche's psp can support iv refresh training and have tools to support patients so these skills remain fresh.	iv skills discussion	iv skills discussion	International 8	Hemophilia
+19	crm_insights	Canada	Sadaf Mohseni	2025-07-28	Saint John Regional Hospital	Ms Shayne Mckay	currently have one moderate switched and another being switched jul 10th. very positive about the funding process. cbs has been reviewing the cases in 1-2 days.	currently have one moderate switched and another being switched jul 10th. very positive about the funding process. cbs has been reviewing the cases in 1-2 days.	moderate switches	moderate switches	International 8	Hemophilia
+20	crm_insights	Canada	Sadaf Mohseni	2025-07-28	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Shalene Wong, Dr Michelle Sholzberg, Ms Shamshah Aratia	disappointed that st. mike's was not selected for vwb trial. request for this to be reconsidered given new trial guidelines and leadership at the hospital	disappointed that st. mike's was not selected for vwb trial. request for this to be reconsidered given new trial guidelines and leadership at the hospital	roche clinical trials	roche clinical trials	International 8	Hemophilia
+21	crm_insights	Canada	Sadaf Mohseni	2025-07-28	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Dr Michelle Sholzberg	currently she is mainly engaging with octa pharma. interests are beyond hemophilia, including girls and women with bleeding disorder and vwb.	currently she is mainly engaging with octa pharma. interests are beyond hemophilia, including girls and women with bleeding disorder and vwb.	engagement with dr.	engagement with dr.	International 8	Hemophilia
+22	crm_insights	Canada	Sadaf Mohseni	2025-07-28	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Ms Rebecca Arcieri	nurses/ allied health are not to engage with pharma at the hospital. all meetings must be virtual as per new london health guidelines	nurses/ allied health are not to engage with pharma at the hospital. all meetings must be virtual as per new london health guidelines	engagement with pharma	engagement with pharma	International 8	Hemophilia
+23	crm_insights	Canada	Sadaf Mohseni	2025-07-28	Saint John Regional Hospital	Dr S E Zed	strong interest in exploring topic of surgery for patients on emi. currenly have one patient scheduled for a surgery. request for future data.	strong interest in exploring topic of surgery for patients on emi. currenly have one patient scheduled for a surgery. request for future data.	surgery data	surgery data	International 8	Hemophilia
+24	crm_insights	Canada	Sadaf Mohseni	2025-07-28	Saint John Regional Hospital	Dr S E Zed	new hematologist starting at st. john from july 14th. she will cover same areas as dr. .	new hematologist starting at st. john from july 14th. she will cover same areas as dr. .	new hematologist starting july 14th	new hematologist starting july 14th	International 8	Hemophilia
+25	crm_insights	Canada	Sheri vanGunst	2025-07-18	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	nurses were not clear on cbs funding for patients with mild hemophilia. clarified that they pt must demonstrate need for prophylaxis or already be on prophylaxis. their understanding was that the patients would have to be on fviii prophylaxis to qualify.	nurses were not clear on cbs funding for patients with mild hemophilia. clarified that they pt must demonstrate need for prophylaxis or already be on prophylaxis. their understanding was that the patients would have to be on fviii prophylaxis to qualify.	mild hemophilia	mild hemophilia	International 8	Hemophilia
+26	crm_insights	Canada	Sheri vanGunst	2025-07-17	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	cbs is now approving hemlibra for acquired hemophilia. clinics are using psp for some of these patients. learning need identified: psp has not had training on acquired hemophilia.	cbs is now approving hemlibra for acquired hemophilia. clinics are using psp for some of these patients. learning need identified: psp has not had training on acquired hemophilia.	acquired hemophilia	acquired hemophilia	International 8	Hemophilia
+27	crm_insights	Canada	Sheri vanGunst	2025-07-14	Foothills Medical Centre	Dr Kelsey O Uminski	dr.  found the expert lounge was valuable. for future implementations, she suggested offering case based learnings where colleagues could share cases and learn from one another.	dr.  found the expert lounge was valuable. for future implementations, she suggested offering case based learnings where colleagues could share cases and learn from one another.	isth expert lounge	isth expert lounge	International 8	Hemophilia
+28	crm_insights	Canada	Sheri vanGunst	2025-07-14	Foothills Medical Centre	Dr Kelsey O Uminski	suggested future preceptorships have fewer slide presentations and more case based learning with participants matched by level of experience with emicizumab	suggested future preceptorships have fewer slide presentations and more case based learning with participants matched by level of experience with emicizumab	preceptorships	preceptorships	International 8	Hemophilia
+29	crm_insights	Canada	Sadaf Mohseni	2025-06-27	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	interest in pursuing a study on collision analysis in childhood sports and connecting it to hemophilia patients	interest in pursuing a study on collision analysis in childhood sports and connecting it to hemophilia patients	physical activity and hemophiliacs	physical activity and hemophiliacs	International 8	Hemophilia
+30	crm_insights	Canada	Sadaf Mohseni	2025-06-27	--Unspecified--	Ms Vanessa Bouskill	only anticipating a few altuviiio switches, mainly for patients who are physically active and do not feel confident without peaks	only anticipating a few altuviiio switches, mainly for patients who are physically active and do not feel confident without peaks	altuviiio switching	altuviiio switching	International 8	Hemophilia
+31	crm_insights	Canada	Sadaf Mohseni	2025-06-27	Children's Hospital of Eastern Ontario	Ms Heather Perkins	only ped htc is unable to use the dosing guide developed by sick kids. cbs has tried obtaining access but vanessa refuses to share	only ped htc is unable to use the dosing guide developed by sick kids. cbs has tried obtaining access but vanessa refuses to share		dosing guide	International 8	Hemophilia
+32	crm_insights	Canada	Sadaf Mohseni	2025-06-27	--Unspecified--	Ms Vanessa Bouskill	discussed need for additional patient resources but she expressed the booklets are enough. would like a qr code of the sc administration video to have in the clinic so patients can watch it on their phones in the waiting area. requested leave behind explaining all changes to the kits, inlcuding vial adaptors.	discussed need for additional patient resources but she expressed the booklets are enough. would like a qr code of the sc administration video to have in the clinic so patients can watch it on their phones in the waiting area. requested leave behind explaining all changes to the kits, inlcuding vial adaptors.	patient resources	patient resources	International 8	Hemophilia
+33	crm_insights	Canada	Sadaf Mohseni	2025-06-27	--Unspecified--	Ms Vanessa Bouskill	clinic is currently starting pups on emicizumab and they would be interested in smaller 12 mg vials for these patients.	clinic is currently starting pups on emicizumab and they would be interested in smaller 12 mg vials for these patients.	pups and dosing	pups and dosing	International 8	Hemophilia
+34	crm_insights	Canada	Sadaf Mohseni	2025-06-27	--Unspecified--	Ms Vanessa Bouskill	currently only collaborating on the psp digitization project but interested to partner on future initiatives	currently only collaborating on the psp digitization project but interested to partner on future initiatives	interest in more opportunities to work with roche	interest in more opportunities to work with roche	International 8	Hemophilia
+35	crm_insights	Canada	Sadaf Mohseni	2025-06-27	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	no updated guidelines that can be followed to advised to patients based on modern therapy introduction. need for more data on this topic	no updated guidelines that can be followed to advised to patients based on modern therapy introduction. need for more data on this topic	gap in physical activity guidelines	gap in physical activity guidelines	International 8	Hemophilia
+36	crm_insights	Canada	Sadaf Mohseni	2025-06-27	IWK Health Centre	Ms Amanda M E Bettle	interested in attending educational activities. up to 5 education days annually in the atl	interested in attending educational activities. up to 5 education days annually in the atl	education/ preceptorships	education/ preceptorships	International 8	Hemophilia
+37	crm_insights	Canada	Laura Pepler	2025-06-25	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	dr.  currently has video recording of non-hemophilic children playing different types of sport detailing type of contact, preparation for impact, speed, frequency etc. and they are looking to have a physio to review and rate how harmful impact would be to support better and more accurate guidance. future work could include hemophilia a patient wearing an accelerometer and correlate impact with bleeds. overall goal is to provide better guidance on risk of physical activity (including activities not included in current guidance) that is backed by evidence (not just expert consensus).	dr.  currently has video recording of non-hemophilic children playing different types of sport detailing type of contact, preparation for impact, speed, frequency etc. and they are looking to have a physio to review and rate how harmful impact would be to support better and more accurate guidance. future work could include hemophilia a patient wearing an accelerometer and correlate impact with bleeds. overall goal is to provide better guidance on risk of physical activity (including activities not included in current guidance) that is backed by evidence (not just expert consensus).	physical activity project proposal	physical activity project proposal	International 8	Hemophilia
+38	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  indicated he has a 2 year old patient in the alutviiio trial who's parents are looking for alternative treatment. - is possible that he wants to consider patient from nxt007 trial but would need to be randomized to emicizumab arm (aluviiio is an exclsuion criteria)	dr.  indicated he has a 2 year old patient in the alutviiio trial who's parents are looking for alternative treatment. - is possible that he wants to consider patient from nxt007 trial but would need to be randomized to emicizumab arm (aluviiio is an exclsuion criteria)	aluviiio trial patient	aluviiio trial patient	International 8	Hemophilia
+39	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	does not see monthly dosing as burdensome. from clinical perspective, dosing every 2 months is not priority.	does not see monthly dosing as burdensome. from clinical perspective, dosing every 2 months is not priority.	dosing frequency	dosing frequency	International 8	Hemophilia
+40	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	dr.  has indicated he has patient's interested in gene therapy. he has early adopters to gt who if failed and gone back to prophylaxis could potentially be eligible	dr.  has indicated he has patient's interested in gene therapy. he has early adopters to gt who if failed and gone back to prophylaxis could potentially be eligible	gene therapy	gene therapy	International 8	Hemophilia
+41	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	is interested in seeing data/understanding threshold dose of nxt007 and fx binding and its impact on fx participation in coagulation.	is interested in seeing data/understanding threshold dose of nxt007 and fx binding and its impact on fx participation in coagulation.	nxt007 and fx binding	nxt007 and fx binding	International 8	Hemophilia
+42	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  requested to be updated on safety and efficacy data of nxt007	dr.  requested to be updated on safety and efficacy data of nxt007	standing request: safety and efficacy data of nxt007	standing request: safety and efficacy data of nxt007	International 8	Hemophilia
+43	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  only does clinical trials to address an unmet need for a patient he cannot otherwise address. when he is not included in trials he is less likely to use treatment as he does not have his own data and experience to draw from.  barriers to pediatric patient clinical trial participation is the volume of blood draws.	dr.  only does clinical trials to address an unmet need for a patient he cannot otherwise address. when he is not included in trials he is less likely to use treatment as he does not have his own data and experience to draw from.  barriers to pediatric patient clinical trial participation is the volume of blood draws.	clinical trial approach	clinical trial approach	International 8	Hemophilia
+44	crm_insights	Canada	Laura Pepler	2025-06-25	Foothills Medical Centre	Dr Kelsey O Uminski	chs has just published a chs novel therapies booklet that is accessible to patients and there is awareness among hcps - this material could be used to guide shared decision making on treatment decisions. there are some speculative statements that are not always supported by current evidence.	chs has just published a chs novel therapies booklet that is accessible to patients and there is awareness among hcps - this material could be used to guide shared decision making on treatment decisions. there are some speculative statements that are not always supported by current evidence.	chs novel therapies booklet	chs novel therapies booklet	International 8	Hemophilia
+45	crm_insights	Canada	Laura Pepler	2025-06-25	Foothills Medical Centre	Dr Kelsey O Uminski	as part of chirp workshop, they discussed grant writing and how to move research projects forward. focus is on research mentorship. - this mentorship in research activities is being supported by ahcdc and roche can continue to support through activities already being done.	as part of chirp workshop, they discussed grant writing and how to move research projects forward. focus is on research mentorship. - this mentorship in research activities is being supported by ahcdc and roche can continue to support through activities already being done.	ahcdc healing and chirp intiative	ahcdc healing and chirp intiative	International 8	Hemophilia
+46	crm_insights	Canada	Laura Pepler	2025-06-25	Foothills Medical Centre	Dr Kelsey O Uminski	would like to see preceptorships be cased-based to allow for robust discussion on real cases they have faced. would like exposure to broader expertise outside their own htc and different management approaches. would like to see people bring 2-3 patient cases for discussion.	would like to see preceptorships be cased-based to allow for robust discussion on real cases they have faced. would like exposure to broader expertise outside their own htc and different management approaches. would like to see people bring 2-3 patient cases for discussion.	preceptorship	preceptorship	International 8	Hemophilia
+47	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  does not use emicizumab in infants as he did not get the experience in the clinical trial which is what drives his management. dr.  expressed concerns about effectiveness of emicizumab when fix levels are predicted to be much lower in infants. - medical to follow-up with additional haven 7 data that provides analysis fix data in the infant population from haven 7	dr.  does not use emicizumab in infants as he did not get the experience in the clinical trial which is what drives his management. dr.  expressed concerns about effectiveness of emicizumab when fix levels are predicted to be much lower in infants. - medical to follow-up with additional haven 7 data that provides analysis fix data in the infant population from haven 7	emicizumab use in infants	emicizumab use in infants	International 8	Hemophilia
+48	crm_insights	Canada	Laura Pepler	2025-06-25	Foothills Medical Centre	Dr Kelsey O Uminski	marstacimab may not be moving forward in canada (has not been submitted to health canada). concizumab currently not available for clinicians in canada (health canada approved but no hta submission)	marstacimab may not be moving forward in canada (has not been submitted to health canada). concizumab currently not available for clinicians in canada (health canada approved but no hta submission)	rebalancing agents	rebalancing agents	International 8	Hemophilia
+49	crm_insights	Canada	Laura Pepler	2025-06-25	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  is less concerned about role of fviii in bone health. after seeing a poster at gth, believes that fviii does not have a critical role in bone health - this is a shift in beliefs away from needing to replace the fviii that is missing in hema patients.	dr.  is less concerned about role of fviii in bone health. after seeing a poster at gth, believes that fviii does not have a critical role in bone health - this is a shift in beliefs away from needing to replace the fviii that is missing in hema patients.	fviii and bone health in hema	fviii and bone health in hema	International 8	Hemophilia
+50	crm_insights	Canada	Laura Pepler	2025-06-21	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  likes to see patient being the focus of industry partners. does not like transactional relationship and prefers more partnership over long-term and always keeping what's best for patients in mind.	dr.  likes to see patient being the focus of industry partners. does not like transactional relationship and prefers more partnership over long-term and always keeping what's best for patients in mind.	patient centric	patient centric	International 8	Hemophilia
+51	crm_insights	Canada	Laura Pepler	2025-06-21	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  requested to be updated on new roche data of emicizumab in hemophilia a that he may not be aware of.	dr.  requested to be updated on new roche data of emicizumab in hemophilia a that he may not be aware of.	standing request	standing request	International 8	Hemophilia
+52	crm_insights	Canada	Laura Pepler	2025-06-21	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  has preference for breakfast meetings at 7:00 a.m. to get availability contact wendy with dr.  in copy.	dr.  has preference for breakfast meetings at 7:00 a.m. to get availability contact wendy with dr.  in copy.	engagement preferences	engagement preferences	International 8	Hemophilia
+53	crm_insights	Canada	Laura Pepler	2025-06-09	--Unspecified--	Sarah Ford	hemophilia ontario is hiring new executive director. new board has also been elected with ash as president and paul as vp	hemophilia ontario is hiring new executive director. new board has also been elected with ash as president and paul as vp	hemophilia ontario	hemophilia ontario	International 8	Hemophilia
+54	crm_insights	Canada	Laura Pepler	2025-06-09	--Unspecified--	Sarah Ford	chs has hired a new program director who started june 9, 2025 .	chs has hired a new program director who started june 9, 2025 .	chs program director	chs program director	International 8	Hemophilia
+55	crm_insights	Canada	Laura Pepler	2025-06-04	Foothills Medical Centre	Dr Man-Chiu Poon	if canada does host a preceptorship, dr.  is willing and interested being involved.	if canada does host a preceptorship, dr.  is willing and interested being involved.	preceptorship	preceptorship	International 8	Hemophilia
+56	crm_insights	Canada	Laura Pepler	2025-06-04	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Dr Jerome M Teitel, Dr Michelle Sholzberg	dr.  is part-time now. no retirement planned yet. dr.  most likely to take over once dr.  does retire	dr.  is part-time now. no retirement planned yet. dr.  most likely to take over once dr.  does retire	dr.  and st. mike's htc	dr.  and st. mike's htc	International 8	Hemophilia
+57	crm_insights	Canada	Sheri vanGunst	2025-06-03	Foothills Medical Centre	Dr Man-Chiu Poon	if canada gets a preceptorship, dr.  would be interested in providing a session on hemophilia history.	if canada gets a preceptorship, dr.  would be interested in providing a session on hemophilia history.	canada preceptorship	canada preceptorship	International 8	Hemophilia
+58	crm_insights	Canada	Laura Pepler	2025-06-03	--Unspecified--	Sue Vanoosten	nurse reported all 26 patients on emicizumab are doing well. mild patient who is a double amputee now has access to emicizumab and patient reported that it has been life changing	nurse reported all 26 patients on emicizumab are doing well. mild patient who is a double amputee now has access to emicizumab and patient reported that it has been life changing	patients on emicizumab	patients on emicizumab	International 8	Hemophilia
+59	crm_insights	Canada	Sadaf Mohseni	2025-06-02	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Ms Rebecca Arcieri	np at london, replacing sabrina. temporary until thunissa returns however there are plans to expand nursing fte to 1.5 at london	np at london, replacing sabrina. temporary until thunissa returns however there are plans to expand nursing fte to 1.5 at london	new nurse at london	new nurse at london	International 8	Hemophilia
+60	crm_insights	Canada	Sadaf Mohseni	2025-06-02	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Grazyna Wozniak	family emergency and grace can no longer attend upcoming ad board.	family emergency and grace can no longer attend upcoming ad board.	ad board attendance	ad board attendance	International 8	Hemophilia
+61	crm_insights	Canada	Sheri vanGunst	2025-05-30	Foothills Medical Centre	Dr Kelsey O Uminski, Julia Brooks, Greig Blamey	dr. uminsky proposed a future project to consider - survey to see what physical activity patients are doing, and what support and guidance are they receiving from their htc's.	dr. uminsky proposed a future project to consider - survey to see what physical activity patients are doing, and what support and guidance are they receiving from their htc's.	potential study idea	potential study idea	International 8	Hemophilia
+62	crm_insights	Canada	Laura Pepler	2025-05-26	--Unspecified--	Dr Manuel Carcao	dr.  will be attending isth but will leave sunday june 22 evening	dr.  will be attending isth but will leave sunday june 22 evening	isth 2025	isth 2025	International 8	Hemophilia
+63	crm_insights	Canada	Sadaf Mohseni	2025-05-22	--Unspecified--	Susie Ostrowski	challenges with new payment system, which requires void cheque. hcp is unable to provide cheque due to personal circumstances and we were unable to find a work around.	challenges with new payment system, which requires void cheque. hcp is unable to provide cheque due to personal circumstances and we were unable to find a work around.	payment system challenges	payment system challenges	International 8	Hemophilia
+64	crm_insights	Canada	Sadaf Mohseni	2025-05-22	--Unspecified--	Sarah Crymble	there remains a need for sc training kits (20-25) for camp this summer. unable to provide this quantity but may have a work around solution for 2025 summer.	there remains a need for sc training kits (20-25) for camp this summer. unable to provide this quantity but may have a work around solution for 2025 summer.	training kits	training kits	International 8	Hemophilia
+65	crm_insights	Canada	Sadaf Mohseni	2025-05-22	Saint John Regional Hospital	Ms Shayne Mckay	very positive feedback re providing the farsi translation of starting hemlibra brochure in a timely manner	very positive feedback re providing the farsi translation of starting hemlibra brochure in a timely manner	translating starting hemlibra brochure	translating starting hemlibra brochure	International 8	Hemophilia
+66	crm_insights	Canada	Sadaf Mohseni	2025-05-22	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	hcp was content with changes to ics funding. enough time was provided for him to plan his trip around these changes	hcp was content with changes to ics funding. enough time was provided for him to plan his trip around these changes	ics funding	ics funding	International 8	Hemophilia
+67	crm_insights	Canada	Sadaf Mohseni	2025-05-22	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	unable to receive payment until remittance slip was provided by roche and sea was unable to provide this in timely manner. several back and forth led to frustration with customer.	unable to receive payment until remittance slip was provided by roche and sea was unable to provide this in timely manner. several back and forth led to frustration with customer.	challenges with obtaining remittance slip from roche	challenges with obtaining remittance slip from roche	International 8	Hemophilia
+68	crm_insights	Canada	Laura Pepler	2025-05-22	--Unspecified--	Dr Manuel Carcao	dr.  indicated he has been doing international talks	dr.  indicated he has been doing international talks	international talks	international talks	International 8	Hemophilia
+69	crm_insights	Canada	Sadaf Mohseni	2025-05-22	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Dr Jerome M Teitel, Ms Shalene Wong	easystart informed hemlibra patient that the injection supplies are out of stock, leading to anxiety amongst patient and clinic.	easystart informed hemlibra patient that the injection supplies are out of stock, leading to anxiety amongst patient and clinic.	shortage of kits	shortage of kits	International 8	Hemophilia
+70	crm_insights	Canada	Laura Pepler	2025-05-13	--Unspecified--	Sarah Ford	was very happy with the roche symposium. appreciated that it was smart, tight, and topics were of interest to community and not something that is often focused on. really highlighted the focus on psychosocial aspects as a positive and would like to see more of this in the future.	was very happy with the roche symposium. appreciated that it was smart, tight, and topics were of interest to community and not something that is often focused on. really highlighted the focus on psychosocial aspects as a positive and would like to see more of this in the future.	Feedback on Symposium Rendezvous	feedback on rendez-vous symposium	International 8	Hemophilia
+71	crm_insights	Canada	Sophie Forestell	2025-05-10	The Moncton Hospital	Mr Glenn Myers	free mouthwash available for everolimus patients. magic / dexamethasone mouthwash can also be provided to non-everolimus patients, but there will be a fee.only select compounding pharmacies will compound steroidal mouthwash. would be really great if roche could provide something like this.	free mouthwash available for everolimus patients. magic / dexamethasone mouthwash can also be provided to non-everolimus patients, but there will be a fee.only select compounding pharmacies will compound steroidal mouthwash. would be really great if roche could provide something like this.	free steroidal mouthwash program - haven	free steroidal mouthwash program - haven	International 8	Hemophilia
+72	crm_insights	Canada	Laura Pepler	2025-05-07	--Unspecified--	Vanessa Bourck	confirmed they have worked out the administrative pieces with physio group and will being using physio group starting in may. patient's will be sent to physio then attend clinic. would like to establish primary physio and have them connected to cphc.	confirmed they have worked out the administrative pieces with physio group and will being using physio group starting in may. patient's will be sent to physio then attend clinic. would like to establish primary physio and have them connected to cphc.	phsyio support to start in may	phsyio support to start in may	International 8	Hemophilia
+73	crm_insights	Canada	Sadaf Mohseni	2025-05-06	--Unspecified--	Tom Young	thunissa is not expected to return to clinic until later in the year. new np covering the clinic responsibilities.	thunissa is not expected to return to clinic until later in the year. new np covering the clinic responsibilities.	thunissa's leave extended	thunissa's leave extended	International 8	Hemophilia
+74	crm_insights	Canada	Sadaf Mohseni	2025-05-06	TOH-The Ottawa Hospital-Admin - TOH-Ottawa Hospital-General Campus	Ms Ayat Al Badri, Vanessa Bourck, Dr Roy Khalife	has moved fully to cheo, while another 0.5 fte pharmacist will be taking over the adult clinic.	has moved fully to cheo, while another 0.5 fte pharmacist will be taking over the adult clinic.	new pharmacist	new pharmacist	International 8	Hemophilia
+75	crm_insights	Canada	Sadaf Mohseni	2025-05-06	--Unspecified--	Ms Vanessa Bouskill	the new canhc exec team will include heather, celina, and karen sims	the new canhc exec team will include heather, celina, and karen sims	canhc exec	canhc exec	International 8	Hemophilia
+76	crm_insights	Canada	Sadaf Mohseni	2025-05-06	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Shamshah Aratia	at the canhc dinner on thursday night, sanofi discussed that funding for altuviiio will be delayed to early 2026.	at the canhc dinner on thursday night, sanofi discussed that funding for altuviiio will be delayed to early 2026.	altuviiio later launch	altuviiio later launch	International 8	Hemophilia
+77	crm_insights	Canada	Sadaf Mohseni	2025-05-06	Children's Hospital of Eastern Ontario, TOH-The Ottawa Hospital-Admin - TOH-Ottawa Hospital-General Campus	Ms Ayat Al Badri, Dr Robert J Klaassen, Ms Heather Perkins	reducing emi dose by 10% and reduce dose changes to 6-12 months (instead of 3-6 months).  shared that this has saved them ~6 months of cost difference. may in the audience shared that they are following a dosing that rounds to nearest vial size.	reducing emi dose by 10% and reduce dose changes to 6-12 months (instead of 3-6 months).  shared that this has saved them ~6 months of cost difference. may in the audience shared that they are following a dosing that rounds to nearest vial size.	dose modification	dose modification	International 8	Hemophilia
+78	crm_insights	Canada	Sadaf Mohseni	2025-05-06	Children's Hospital of Eastern Ontario	Ms Heather Perkins	there will be a sanofi dinner on may 1st and novo dinner on may 2nd.	there will be a sanofi dinner on may 1st and novo dinner on may 2nd.	ci - competitor dinners w/ canch	ci - competitor dinners w/ canhc	International 8	Hemophilia
+79	crm_insights	Canada	Sadaf Mohseni	2025-05-06	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Dr Michelle Sholzberg, Ms Shamshah Aratia	st. mike's is excited about the altuviiio launch and is disappointed by the launch delay.	st. mike's is excited about the altuviiio launch and is disappointed by the launch delay.	excitement around altuviiio	excitement around altuviiio	International 8	Hemophilia
+80	crm_insights	Canada	Sadaf Mohseni	2025-05-06	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Dr Jerome M Teitel, Dr Michelle Sholzberg	winner of dr. cecil harris award. presented by dr.	winner of dr. cecil harris award. presented by dr.	chs gala award	chs gala award	International 8	Hemophilia
+81	crm_insights	Canada	Sadaf Mohseni	2025-05-06	Eastern Health Sciences Centre - General Hospital	Ms Coleen Moores, Ms Ann M (Michelle) MacKey	expressed interest in attending upcoming nurses ad board	expressed interest in attending upcoming nurses ad board	roche ad board	roche ad board	International 8	Hemophilia
+82	crm_insights	Canada	Sadaf Mohseni	2025-05-06	The Hospital for Sick Children	Dr Leonardo R Brandao, Dr Walter H A Kahr, Dr Caroline D Malcolmson	dr.  won this year's maureen andrew award. presented by sick kids team	dr.  won this year's maureen andrew award. presented by sick kids team	maureen andrew award	maureen andrew award	International 8	Hemophilia
+83	crm_insights	Canada	Sadaf Mohseni	2025-05-06	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Soumitra S Tole	great appreciation of roche for sponsoring cpthn meeting. opportunity to increase sponsorship next year so roche can be more present at the meeting and present an update at the session.	great appreciation of roche for sponsoring cpthn meeting. opportunity to increase sponsorship next year so roche can be more present at the meeting and present an update at the session.	cpthn meeting	cpthn meeting	International 8	Hemophilia
+84	crm_insights	Canada	Laura Pepler	2025-04-25	--Unspecified--	Dr Caroline D Malcolmson	dr.  will attend isth as she will present the iis abstract that has been accepted.	dr.  will attend isth as she will present the iis abstract that has been accepted.	isth 2025	isth 2025	International 8	Hemophilia
+85	crm_insights	Canada	Laura Pepler	2025-04-25	--Unspecified--	Dr Caroline D Malcolmson	will plan to submit abstract for iis to ash 2025. deadline date of aug 5 should be realistic to get next dat cut in	will plan to submit abstract for iis to ash 2025. deadline date of aug 5 should be realistic to get next dat cut in	ash 2025	ash 2025	International 8	Hemophilia
+86	crm_insights	Canada	Laura Pepler	2025-04-25	--Unspecified--	Dr Caroline D Malcolmson	largest improvement in outcomes that is measurable usually seen in first 3 months for those on emicizumab. this is the most important time point to capture.	largest improvement in outcomes that is measurable usually seen in first 3 months for those on emicizumab. this is the most important time point to capture.	important time point to captures outcomes	important time point to captures outcomes	International 8	Hemophilia
+87	crm_insights	Canada	Laura Pepler	2025-04-25	Royal University Hospital	Dr Roona Sinha	dr.  will not attend isth 2025 given situation in the us	dr.  will not attend isth 2025 given situation in the us	isth 2025	isth 2025	International 8	Hemophilia
+88	crm_insights	Canada	Laura Pepler	2025-04-24	--Unspecified--	Ms Vanessa Bouskill	canhc exec updated for 2025-2026 - past presidentcelina woo - presidentheather bauman - president electkaren simms - secretary	canhc exec updated for 2025-2026 - past presidentcelina woo - presidentheather bauman - president electkaren simms - secretary	canhc executive update	canhc executive update	International 8	Hemophilia
+89	crm_insights	Canada	Laura Pepler	2025-04-24	Saint John Regional Hospital	Ms Shayne Mckay	nurse at saint john htc has patient who is interested in emicizumab	nurse at saint john htc has patient who is interested in emicizumab	htc in saint john patient interest	htc in saint john patient interest	International 8	Hemophilia
+90	crm_insights	Canada	Laura Pepler	2025-04-24	--Unspecified--	Ms Vanessa Bouskill	interest in understanding the canadian data/landscape on fviii inhibitor recurrence in those on emicizumab and what clinically hcps are doing when an inhibitor comes back. experience at sick kids is 1 patient stayed on emicizumab. 1 patient/family decided to do iti and was discontinued on emicizumab	interest in understanding the canadian data/landscape on fviii inhibitor recurrence in those on emicizumab and what clinically hcps are doing when an inhibitor comes back. experience at sick kids is 1 patient stayed on emicizumab. 1 patient/family decided to do iti and was discontinued on emicizumab	fviii inhibitor recurrence	fviii inhibitor recurrence	International 8	Hemophilia
+91	crm_insights	Canada	Laura Pepler	2025-04-24	--Unspecified--	Ms Vanessa Bouskill	community is not clear on gene therapy updates given a number of recent updates/changes across companies and who has which molecules (past, present, future). opportunity to have clear narrative for spk-8011qq.	community is not clear on gene therapy updates given a number of recent updates/changes across companies and who has which molecules (past, present, future). opportunity to have clear narrative for spk-8011qq.	clarity on gene therapy	clarity on gene therapy	International 8	Hemophilia
+92	crm_insights	Canada	Laura Pepler	2025-04-24	--Unspecified--	Ms Vanessa Bouskill	pbac is a more important bleed related outcome then the mbq which is capturing more qol	pbac is a more important bleed related outcome then the mbq which is capturing more qol	outcomes in women and girls who bleed	outcomes in women and girls who bleed	International 8	Hemophilia
+93	crm_insights	Canada	Laura Pepler	2025-04-15	--Unspecified--	Dr David P Lillicrap	dr. lillircrap will be attending isth 2025	dr. lillircrap will be attending isth 2025	isth attendence	isth attendence	International 8	Hemophilia
+94	crm_insights	Canada	Sadaf Mohseni	2025-04-15	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	presenting at the upcoming thrombosis conference in halifax. will be attending isth, as he is part of the planning committee.	presenting at the upcoming thrombosis conference in halifax. will be attending isth, as he is part of the planning committee.	conference attendance	conference attendance	International 8	Hemophilia
+95	crm_insights	Canada	Sadaf Mohseni	2025-04-15	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	anticipates that some of his current fiv patients will switch to biv. he believes that the once/week dosing will be sufficient for older children while at a younger age, they should receive 2 doses/ week.	anticipates that some of his current fiv patients will switch to biv. he believes that the once/week dosing will be sufficient for older children while at a younger age, they should receive 2 doses/ week.	altuviiio switching	altuviiio switching	International 8	Hemophilia
+96	crm_insights	Canada	Laura Pepler	2025-04-15	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	dr.  was not aware of any mim8 study being done in pups	dr.  was not aware of any mim8 study being done in pups	no mim8 study in pups	no mim8 study in pups	International 8	Hemophilia
+97	crm_insights	Canada	Laura Pepler	2025-04-15	--Unspecified--	Dr Manuel Carcao	hcps could look at treatment affects on lab assays (osa etc.) and factor by which it is affected as surrogate marker of effectiveness. does not see this is accurate but could be used to compare	hcps could look at treatment affects on lab assays (osa etc.) and factor by which it is affected as surrogate marker of effectiveness. does not see this is accurate but could be used to compare	lab assays as surrogate marker of effectiveness	lab assays as surrogate marker of effectiveness	International 8	Hemophilia
+98	crm_insights	Canada	Sadaf Mohseni	2025-04-15	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  shared that he does not currently have any mild/moderate patients with severe bleeding phenotypes. he said by the time these mild/ moderate patients develop severe bleeding phenotypes, they are near adult age and already transitioned to dr. matino	dr.  shared that he does not currently have any mild/moderate patients with severe bleeding phenotypes. he said by the time these mild/ moderate patients develop severe bleeding phenotypes, they are near adult age and already transitioned to dr. matino	mild/ moderate patients	mild/ moderate patients	International 8	Hemophilia
+99	crm_insights	Canada	Laura Pepler	2025-04-15	--Unspecified--	Dr David P Lillicrap	dr.  is excited about the gene editing work being done and is a focus of his research currently	dr.  is excited about the gene editing work being done and is a focus of his research currently	gene editing	gene editing	International 8	Hemophilia
+100	crm_insights	Canada	Laura Pepler	2025-04-15	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Soumitra S Tole	dr.  is unsure if he will attend isth due to political situation. he confirmed he is not speaking at the conference.	dr.  is unsure if he will attend isth due to political situation. he confirmed he is not speaking at the conference.	isth attendence	isth attendence	International 8	Hemophilia
+101	crm_insights	Canada	Laura Pepler	2025-04-15	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	dr  wil not attend isth due to the political situation	dr  wil not attend isth due to the political situation	isth attendence	isth attendence	International 8	Hemophilia
+102	crm_insights	Canada	Laura Pepler	2025-04-15	--Unspecified--	Dr David P Lillicrap	new publication details potential use of emicizumab for subset of hemophilia b patients: fix variants with loss of function caused by dysfunctional assembly on the xase complex. emcizumab was shown to improve procoagulant activity with these variants in in vitro assays	new publication details potential use of emicizumab for subset of hemophilia b patients: fix variants with loss of function caused by dysfunctional assembly on the xase complex. emcizumab was shown to improve procoagulant activity with these variants in in vitro assays	emicizumab use in subset of hem b fix patients	emicizumab use in subset of hem b fix patients	International 8	Hemophilia
+103	crm_insights	Canada	Laura Pepler	2025-04-15	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	dr.  has planned to attend isth and made commitments but was feeling unsure about attending.	dr.  has planned to attend isth and made commitments but was feeling unsure about attending.	isth attendance	isth attendance	International 8	Hemophilia
+104	crm_insights	Canada	Sadaf Mohseni	2025-04-15	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	unable to attend ad board but interested in providing feedback to roche in a formal setting. would also like to receive update from ad board discussion under nda.	unable to attend ad board but interested in providing feedback to roche in a formal setting. would also like to receive update from ad board discussion under nda.	partnership with roche	partnership with roche	International 8	Hemophilia
+105	crm_insights	Canada	Sheri vanGunst	2025-04-10	--Unspecified--	--Unspecified--	Parent of patient with severe hemophilia shared that outdated parenting resources often impose limitations on children with hemophilia, affecting their career and recreational choices.	Parent of patient with severe hemophilia shared that outdated parenting resources often impose limitations on children with hemophilia, affecting their career and recreational choices.	Hemophilia patient materials	Hemophilia patient materials	International 8	Hemophilia
+106	crm_insights	Canada	Laura Pepler	2025-04-08	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital, Kaye Edmonton Clinic	Adriana Koziac Carter, Ms Erin M McCabe, Karen Strike	probe interface for clinicans is challenging. patient input into probe but report that no one talks to them about what they entered into probe. interface is being addressed with cbdrnext.	probe interface for clinicans is challenging. patient input into probe but report that no one talks to them about what they entered into probe. interface is being addressed with cbdrnext.	probe	probe	International 8	Hemophilia
+107	crm_insights	Canada	Laura Pepler	2025-04-08	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital, Kaye Edmonton Clinic	Adriana Koziac Carter, Ms Erin M McCabe, Karen Strike	pro data is available but physios report no real ability to respond to what the patient reports (i.e. mental health). this is gap in care and not clear how qol data at the patient level is being addressed.	pro data is available but physios report no real ability to respond to what the patient reports (i.e. mental health). this is gap in care and not clear how qol data at the patient level is being addressed.	for data	pro data	International 8	Hemophilia
+108	crm_insights	Canada	Sadaf Mohseni	2025-04-07	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	measuring emi levels in clinic. the results to be published and the publication submitted to ahcdc and cpthn.	measuring emi levels in clinic. the results to be published and the publication submitted to ahcdc and cpthn.	emi levels	emi levels	International 8	Hemophilia
+109	crm_insights	Canada	Sadaf Mohseni	2025-04-07	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	no longer attending isth due to political situation.	no longer attending isth due to political situation.	isth	isth	International 8	Hemophilia
+110	crm_insights	Canada	Sadaf Mohseni	2025-04-07	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	dr.  shared that he would only switch patients from emi to biv if the patient is involved in high levels of physical activity and needs peace of mind. expecting less than 10% of patients to switch.	dr.  shared that he would only switch patients from emi to biv if the patient is involved in high levels of physical activity and needs peace of mind. expecting less than 10% of patients to switch.	competition	competition	International 8	Hemophilia
+111	crm_insights	Canada	Sadaf Mohseni	2025-04-07	Children's Hospital of Eastern Ontario, The Hospital for Sick Children	Dr Leonardo R Brandao, Dr Robert J Klaassen, Ms Vanessa Bouskill	conducting research regarding physical activity and injuries in normal patients. to be extrapolated to hemophilia patients. research is in early phases and they are interested in funding from roche.	conducting research regarding physical activity and injuries in normal patients. to be extrapolated to hemophilia patients. research is in early phases and they are interested in funding from roche.	funding for research	funding for research	International 8	Hemophilia
+112	crm_insights	Canada	Sadaf Mohseni	2025-04-07	Children's Hospital of Eastern Ontario	Dr Robert J Klaassen	positive experience with trial patient. would switch from emi only if the patient is severely struggling with injection pain	positive experience with trial patient. would switch from emi only if the patient is severely struggling with injection pain	Me 8	mim 8	International 8	Hemophilia
+113	crm_insights	Canada	Sadaf Mohseni	2025-04-05	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Karen Strike	interested in supporting the development of the program (unable to present it). contracting to follow	interested in supporting the development of the program (unable to present it). contracting to follow	Rendezvous ola	rendez vous ola	International 8	Hemophilia
+114	crm_insights	Canada	Sadaf Mohseni	2025-04-05	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Dr Anthony K C Chan	dr.  was happy with the clinical outcome of his patients on altuviiio, sharing that his patients are near normal levels most of the week. was not concerned about having to dose them twice/ week	dr.  was happy with the clinical outcome of his patients on altuviiio, sharing that his patients are near normal levels most of the week. was not concerned about having to dose them twice/ week		altuviiio dosing	International 8	Hemophilia
+115	crm_insights	Canada	Sadaf Mohseni	2025-04-05	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Soumitra S Tole	unable to attend either preceptorship dates. due to timelines, no canadian hcps attending this year	unable to attend either preceptorship dates. due to timelines, no canadian hcps attending this year	roche preceptorship	roche preceptorship	International 8	Hemophilia
+116	crm_insights	Canada	Sadaf Mohseni	2025-04-05	Children's Hospital of Eastern Ontario	Ms Heather Perkins	upon approval, one patient is expected to switch from hemlibra to altuviiio - physically active.	upon approval, one patient is expected to switch from hemlibra to altuviiio - physically active.	switching to altuviiio	switching to altuviiio	International 8	Hemophilia
+117	crm_insights	Canada	Sadaf Mohseni	2025-04-05	--Unspecified--	Colleen Jones Down	interested but unable to support initiative as she will not be attending rendez vous this year.	interested but unable to support initiative as she will not be attending rendez vous this year.	Physio ola at Rendez-Vous Steering Committee	physio ola at rendez-vous steering committee	International 8	Hemophilia
+118	crm_insights	Canada	Sheri vanGunst	2025-03-21	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	nurses reported  a gap in patients recognizing breakthrough bleeds, they see a need for a bleed recognition toll for patients	nurses reported  a gap in patients recognizing breakthrough bleeds, they see a need for a bleed recognition toll for patients	bleed recognition	bleed recognition	International 8	Hemophilia
+119	crm_insights	Canada	Sheri vanGunst	2025-03-21	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	and  would like to continue with their standing request to receive updates on hemlibra data as it becomes available	and  would like to continue with their standing request to receive updates on hemlibra data as it becomes available	standing request	standing request	International 8	Hemophilia
+120	crm_insights	Canada	Sheri vanGunst	2025-03-21	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	this clinic has no immediate plans to switch patients to hemlibra	this clinic has no immediate plans to switch patients to hemlibra	altiviiio	altiviiio	International 8	Hemophilia
+121	crm_insights	Canada	Sheri vanGunst	2025-03-21	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	patient with acquired hemophilia in portage la prarie receiving hemlibra every 2 weeks via psp. hemlibra injection has had to be moved by 1 or 2 days as psp is not available on day injection is due.	patient with acquired hemophilia in portage la prarie receiving hemlibra every 2 weeks via psp. hemlibra injection has had to be moved by 1 or 2 days as psp is not available on day injection is due.	psp availability	psp availability	International 8	Hemophilia
+122	crm_insights	Canada	Sheri vanGunst	2025-03-21	BC Children's Hospital and Sunny Hill Health Centr	Dr Mark J Belletrutti	dr.  has decided not to attend isth or ash this year due to current political issues between the us and canada.	dr.  has decided not to attend isth or ash this year due to current political issues between the us and canada.	isth and ash attendance	isth and ash attendance	International 8	Hemophilia
+123	crm_insights	Canada	Sheri vanGunst	2025-03-21	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	hemlibra is dispensed through the cancer care out patient pharmacy in manitoba which has limited resources for managing hemlibra. as a result patients are required to give extra notice for their hemlibra refills from time time. this is a discrepancy relative to other provinces where hemlibra is dispensed by cbs.	hemlibra is dispensed through the cancer care out patient pharmacy in manitoba which has limited resources for managing hemlibra. as a result patients are required to give extra notice for their hemlibra refills from time time. this is a discrepancy relative to other provinces where hemlibra is dispensed by cbs.	hemlibra dispensing in manitoba	hemlibra dispensing in manitoba	International 8	Hemophilia
+124	crm_insights	Canada	Sadaf Mohseni	2025-03-13	Eastern Health Sciences Centre - General Hospital	Bonnie osmond, Colleen Jones	no educational gaps when it comes to patients with high levels of physical activity. instead,  is interested in chairing physical activity ola or presenting nfl experience with other centers.	no educational gaps when it comes to patients with high levels of physical activity. instead,  is interested in chairing physical activity ola or presenting nfl experience with other centers.	physical activity ola	physical activity ola	International 8	Hemophilia
+125	crm_insights	Canada	Sadaf Mohseni	2025-03-13	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy, Dr Paul C Moorehead, Ms Coleen Moores, Ms Ann M (Michelle) MacKey	dr. brian harnett now supporting the adult hemophilia practice, along with dr.	dr. brian harnett now supporting the adult hemophilia practice, along with dr.	new hematologist	new hematologist	International 8	Hemophilia
+126	crm_insights	Canada	Sadaf Mohseni	2025-03-13	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy, Dr Paul C Moorehead, Ms Coleen Moores, Ms Ann M (Michelle) MacKey	high levels of comfort when it comes to managing patients who are involved in sports. one athlete patient would be switched to atuviiio  once available	high levels of comfort when it comes to managing patients who are involved in sports. one athlete patient would be switched to atuviiio  once available	understanding needs for patients with high levels of physical activity	understanding needs for patients with high levels of physical activity	International 8	Hemophilia
+127	crm_insights	Canada	Sadaf Mohseni	2025-03-13	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy, Dr Paul C Moorehead, Ms Coleen Moores, Ms Ann M (Michelle) MacKey	* beyond the haven 6 trial patients, both dr.  and dr.  shared that they have no moderates/ mild with severe bleeding phenotypes	* beyond the haven 6 trial patients, both dr.  and dr.  shared that they have no moderates/ mild with severe bleeding phenotypes	moderate patients at nl	moderate patients at nl	International 8	Hemophilia
+128	crm_insights	Canada	Sadaf Mohseni	2025-03-13	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy, Dr Paul C Moorehead, Ms Coleen Moores, Ms Ann M (Michelle) MacKey	patient with joint pain to be switched to altuviiio or concizumab. patient is a senior with significant joint damage.	patient with joint pain to be switched to altuviiio or concizumab. patient is a senior with significant joint damage.	competitor activity	competitor activity	International 8	Hemophilia
+129	crm_insights	Canada	Nathalie Budd	2025-03-11	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	there is a desire from the nurses to have educational material for patient to access. consider re-vamping the hurt app for patients to access bleeding assessment algorithm	there is a desire from the nurses to have educational material for patient to access. consider re-vamping the hurt app for patients to access bleeding assessment algorithm	patient need tool to help assess bleeds	patient need tool to help assess bleeds	International 8	Hemophilia
+130	crm_insights	Canada	Nathalie Budd	2025-03-11	Health Sciences Centre	Ms Khristine Cheng, Ms Crystalynne San Juan	the access of hemlibra via cancer care would be limiting patient access relative to other provinces. cancer care in manitoba is not well set up to manage these requests.	the access of hemlibra via cancer care would be limiting patient access relative to other provinces. cancer care in manitoba is not well set up to manage these requests.	management through cancer care is not ideal for hemophilia patietns	management through cancer care is not ideal for hemophilia patietns	International 8	Hemophilia
+131	crm_insights	Canada	Sheri vanGunst	2025-03-08	St Paul's Hospital	Dr Shannon Jackson	btw i’m at healing and it was fantastic!  it was mentioned that roche helped support the event today	btw i’m at healing and it was fantastic!  it was mentioned that roche helped support the event today	healing grant	healing grant	International 8	Hemophilia
+132	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	data of emicizumab experience in females is valuable to understand any differences in how it effects msk vs muscosal bleeding. potential learning gap	data of emicizumab experience in females is valuable to understand any differences in how it effects msk vs muscosal bleeding. potential learning gap	msk vs mucosal bleeding	msk vs mucosal bleeding	International 8	Hemophilia
+133	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	with fviii products, they differentiated products by what was offered through programs in terms of supplies and home infusion support. patient experience drove treatment choice when all treatments were efficacious	with fviii products, they differentiated products by what was offered through programs in terms of supplies and home infusion support. patient experience drove treatment choice when all treatments were efficacious	treatment decisions	treatment decisions	International 8	Hemophilia
+134	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	devices are valuable as they allow more independence at early age (4-5 years old) and older age when dexterity is not as good.	devices are valuable as they allow more independence at early age (4-5 years old) and older age when dexterity is not as good.	autoinjector / pen devices	autoinjector / pen devices	International 8	Hemophilia
+135	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	a newly diagnosed baby will go on emicizumab. they don't consider see fviii as an option in this population anymore.	a newly diagnosed baby will go on emicizumab. they don't consider see fviii as an option in this population anymore.	infants on emicizumab	infants on emicizumab	International 8	Hemophilia
+136	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	patient's do ask sometimes ask about any safety events that have been reported since last visit. cbdr does provide quarterly updates on what has been reported in canada.	patient's do ask sometimes ask about any safety events that have been reported since last visit. cbdr does provide quarterly updates on what has been reported in canada.	safety data	safety data	International 8	Hemophilia
+137	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	--Unspecified--	without the ability to confirm a suspected ada in patient, as a hematologist they would look to switch to altuviiio.	without the ability to confirm a suspected ada in patient, as a hematologist they would look to switch to altuviiio.	there is testing	ada testing	International 8	Hemophilia
+138	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	nurses are wanting an interim solution until the hirt app is integrated into cbdr next. they would like a one-pager on the algorithm to use with patients.	nurses are wanting an interim solution until the hirt app is integrated into cbdr next. they would like a one-pager on the algorithm to use with patients.	hirt app	hirt app	International 8	Hemophilia
+139	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Ms Vanessa Bouskill	nurses will need to be aware of the new vials as hospitals will need ~2 months to update systems so the new vials can be dispensed.  suggested sending a communication through the canhc exec which they can then disseminate to raise awareness of administrative need to update systems.	nurses will need to be aware of the new vials as hospitals will need ~2 months to update systems so the new vials can be dispensed.  suggested sending a communication through the canhc exec which they can then disseminate to raise awareness of administrative need to update systems.	new vial strengths	new vial strengths	International 8	Hemophilia
+140	crm_insights	Canada	Laura Pepler	2025-03-06	--Unspecified--	Mr Sylvain Grenier	st. mike's htc does not think it's appropriate for clinicians to not have an ability to confirm adas. they would like to have the ability to do an elisa to confirm suspected cases.	st. mike's htc does not think it's appropriate for clinicians to not have an ability to confirm adas. they would like to have the ability to do an elisa to confirm suspected cases.	ada testing	ada testing	International 8	Hemophilia
+141	crm_insights	Canada	Sadaf Mohseni	2025-03-03	--Unspecified--	Vanessa Bourck	a competitor company recently organized a dinner for the two ottawa clinics to share data readout	a competitor company recently organized a dinner for the two ottawa clinics to share data readout	competitor dinner	competitor dinner	International 8	Hemophilia
+142	crm_insights	Canada	Laura Pepler	2025-03-03	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy	concerned about targeting higher factor viii levels / hemostatic coverage especially in older mild hemophilia patients.	concerned about targeting higher factor viii levels / hemostatic coverage especially in older mild hemophilia patients.	targeting high fviii activity levels	targeting high fviii activity levels	International 8	Hemophilia
+143	crm_insights	Canada	Laura Pepler	2025-03-03	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy	dr.  focuses on adults. dr. moorehead is pediatric	dr.  focuses on adults. dr. moorehead is pediatric	clinic structure	clinic structure	International 8	Hemophilia
+144	crm_insights	Canada	Sadaf Mohseni	2025-03-03	TOH-The Ottawa Hospital-Admin - TOH-Ottawa Hospital-General Campus	Dr Roy Khalife	3/8 inch needles have been very critical with needle phobia/ pain management	3/8 inch needles have been very critical with needle phobia/ pain management	shorter needles	shorter needles	International 8	Hemophilia
+145	crm_insights	Canada	Laura Pepler	2025-03-03	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy	dr.  is usually available monday's and can sometimes accommodate meetings on friday	dr.  is usually available monday's and can sometimes accommodate meetings on friday	availability	availability	International 8	Hemophilia
+146	crm_insights	Canada	Laura Pepler	2025-03-03	Eastern Health Sciences Centre - General Hospital	Dr Natasha A Pardy	very positive feedback on roche's support for their healing meeting. they had a great workshop and many research ideas identified that will be communicated at the ahcdc agm	very positive feedback on roche's support for their healing meeting. they had a great workshop and many research ideas identified that will be communicated at the ahcdc agm	healing grant	healing grant	International 8	Hemophilia
+147	crm_insights	Canada	Sadaf Mohseni	2025-03-03	TOH-The Ottawa Hospital-Admin - TOH-Ottawa Hospital-General Campus	Dr Roy Khalife	discussed physio preceptorship at ottawa. vanessa and dr.  will take the lead on organizing a dinner with cheo for roche to host ola of physical activity	discussed physio preceptorship at ottawa. vanessa and dr.  will take the lead on organizing a dinner with cheo for roche to host ola of physical activity	physio preceptorship	physio preceptorship	International 8	Hemophilia
+148	crm_insights	Canada	Sadaf Mohseni	2025-03-03	--Unspecified--	Vanessa Bourck	they would consider switching their physically active patients to altuviiio	they would consider switching their physically active patients to altuviiio	biv and physical activity	biv and physical activity	International 8	Hemophilia
+149	crm_insights	Canada	Sheri vanGunst	2025-02-25	St Paul's Hospital	Dr Shannon Jackson	dr. 's clinic has developed a provincial aha treatment protocol.	dr. 's clinic has developed a provincial aha treatment protocol.	aha protocol in bc	aha protocol in bc	International 8	Hemophilia
+150	crm_insights	Canada	Sheri vanGunst	2025-02-24	Royal University Hospital	Nancy Hodgson, Ms Karen Mantyka, Ms Heather C Hrebeniuk	is willing to be a speaker for rendezvous symposium if mental health topic is a focus	is willing to be a speaker for rendezvous symposium if mental health topic is a focus	medical education	medical education	International 8	Hemophilia
+151	crm_insights	Canada	Sheri vanGunst	2025-02-24	Royal University Hospital	Nancy Hodgson, Ms Karen Mantyka, Ms Heather C Hrebeniuk	simms is joining canhc exec as secretary. lisa thibault is stepping down.	simms is joining canhc exec as secretary. lisa thibault is stepping down.	canhc	canhc	International 8	Hemophilia
+152	crm_insights	Canada	Sheri vanGunst	2025-02-24	Royal University Hospital	Nancy Hodgson, Ms Karen Mantyka, Ms Heather C Hrebeniuk	no patient information available on hemlibra moa foe longer half life.	no patient information available on hemlibra moa foe longer half life.	patient education  - moa	patient education  - moa	International 8	Hemophilia
+153	crm_insights	Canada	Sheri vanGunst	2025-02-24	Royal University Hospital	Nancy Hodgson, Ms Karen Mantyka, Ms Heather C Hrebeniuk	is interested in being on steering committee for cultural sensitivity ola if it goes ahead	is interested in being on steering committee for cultural sensitivity ola if it goes ahead	medical education	medical education	International 8	Hemophilia
+154	crm_insights	Canada	Laura Pepler	2025-02-20	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Chai W Phua	not clear if sanofi will make available product specific calibrators for altuviiio that allows for accurate measurement of fviii activity using csa (which will needed if emicizumab is also present)	not clear if sanofi will make available product specific calibrators for altuviiio that allows for accurate measurement of fviii activity using csa (which will needed if emicizumab is also present)	Altuviiio Calibrators	altuviiio calibrators	International 8	Hemophilia
+155	crm_insights	Canada	Laura Pepler	2025-02-20	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Chai W Phua	dr.  is still interested in pursing study to quantify emi levels with mass spec which could be more accurate then r2 diagnostics calibrators currently being used.	dr.  is still interested in pursing study to quantify emi levels with mass spec which could be more accurate then r2 diagnostics calibrators currently being used.	emicizumab levels	emicizumab levels	International 8	Hemophilia
+156	crm_insights	Canada	Sadaf Mohseni	2025-02-18	HHS-Hamilton Health Sciences-Admin - McMaster Children's Hospital	Davide  Matino	dr.  agreed to be a speaker for the lab ola but requested that the date be scheduled 5-6 months in advance. he is booked up until june 2025.	dr.  agreed to be a speaker for the lab ola but requested that the date be scheduled 5-6 months in advance. he is booked up until june 2025.	dr.  ola speaker	dr.  ola speaker	International 8	Hemophilia
+157	crm_insights	Canada	Stephane Germain	2025-02-13	--Unspecified--	Helene Neron	quebec nurses team shared that some patients vocalised that if a intraveinous solution was available they would switch from subcu to intraveinous mainly due to pain control	quebec nurses team shared that some patients vocalised that if a intraveinous solution was available they would switch from subcu to intraveinous mainly due to pain control	subcu vs intravenous patient experience	subcu vs intravenous patient experience	International 8	Hemophilia
+158	crm_insights	Canada	Stephane Germain	2025-02-12	--Unspecified--	Helene Neron	confirmed 44 patients currently on hemlibra at chu of quebec. 7 have access but refused the treatment - 2 mild hemophilia a are included in those 44. potential 3 switches on the 7 in the next 4 months.	confirmed 44 patients currently on hemlibra at chu of quebec. 7 have access but refused the treatment - 2 mild hemophilia a are included in those 44. potential 3 switches on the 7 in the next 4 months.	number of patients confirmations	number of patients confirmations	International 8	Hemophilia
+159	crm_insights	Canada	Stephane Germain	2025-02-12	--Unspecified--	Helene Neron	the chu of quebec nurses team shared that some remote patients experienced several delays due to the mandatory signature when psp deliver kit to home - majority of remote adult patients are working when psp deliver infusion kits at home. they would like to know if the removal of this mandatiory signature is possible	the chu of quebec nurses team shared that some remote patients experienced several delays due to the mandatory signature when psp deliver kit to home - majority of remote adult patients are working when psp deliver infusion kits at home. they would like to know if the removal of this mandatiory signature is possible	mandatory signature from easystart deliveries	mandatory signature from easystart deliveries	International 8	Hemophilia
+160	crm_insights	Canada	Laura Pepler	2025-02-11	--Unspecified--	Sarah Ford	clarified that olas done at education meetings are acceptable if outside of agenda and can be organized directly with canhc and cphc. it is not tied to sponsorship of meetings	clarified that olas done at education meetings are acceptable if outside of agenda and can be organized directly with canhc and cphc. it is not tied to sponsorship of meetings	olas for cphc and canhc	olas for cphc and canhc	International 8	Hemophilia
+161	crm_insights	Canada	Laura Pepler	2025-02-11	--Unspecified--	--Unspecified--	Requested to be updated on Roche clinical trial updates in hemophilia A and VWD	Requested to be updated on Roche clinical trial updates in hemophilia A and VWD	Pipeline	Pipeline	International 8	Hemophilia
+162	crm_insights	Canada	Laura Pepler	2025-02-11	--Unspecified--	Sarah Ford	no opportunity for roche update at may canhc meeting. opportunity will be available at fall meeting	no opportunity for roche update at may canhc meeting. opportunity will be available at fall meeting	canhc education meeting	canhc education meeting	International 8	Hemophilia
+163	crm_insights	Canada	Sadaf Mohseni	2025-02-10	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Grazyna Wozniak, Dr Jerome M Teitel, Ms Shalene Wong, Ms Shamshah Aratia	moderate patient from haven trial was recently in clinic. they will follow up with him to switch him to cbs.	moderate patient from haven trial was recently in clinic. they will follow up with him to switch him to cbs.	haven 6 switch to cbs	haven 6 switch to cbs	International 8	Hemophilia
+164	crm_insights	Canada	Sadaf Mohseni	2025-02-10	--Unspecified--	Laurence Boma-Fischer	informed me that he has left st. mike's but would be interested in participating in consultancy work.	informed me that he has left st. mike's but would be interested in participating in consultancy work.	interest in consultancy	interest in consultancy	International 8	Hemophilia
+165	crm_insights	Canada	Sadaf Mohseni	2025-02-10	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Grazyna Wozniak, Dr Jerome M Teitel, Ms Shalene Wong, Ms Shamshah Aratia	patients have switches to fviii due to the control they have over checking their activity levels	patients have switches to fviii due to the control they have over checking their activity levels	several patients have decided to switch back to fviii	several patients have decided to switch back to fviii	International 8	Hemophilia
+166	crm_insights	Canada	Sadaf Mohseni	2025-02-10	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Grazyna Wozniak, Dr Jerome M Teitel, Ms Shalene Wong, Ms Shamshah Aratia	they have 1 patients on mim8 from sick kids trial	they have 1 patients on mim8 from sick kids trial	mim8 patients	mim8 patients	International 8	Hemophilia
+167	crm_insights	Canada	Sadaf Mohseni	2025-02-10	--Unspecified--	Sue Vanoosten	expressed dissatisfaction of changing ad board date. request for roche to revisit as she would like to participate but has conflict for may 31.	expressed dissatisfaction of changing ad board date. request for roche to revisit as she would like to participate but has conflict for may 31.	disappointed with date change for ad board	disappointed with date change for ad board	International 8	Hemophilia
+168	crm_insights	Canada	Sadaf Mohseni	2025-02-10	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Grazyna Wozniak, Dr Jerome M Teitel, Ms Shalene Wong, Ms Shamshah Aratia	- altuviiio will be for mu patients who haven’t switched to hemlibra yet. a threat to hemlibra will be mim8.- perception that mim8 is more efficacious. but this was questioned once we started to discuss trial inclusion criteria.	- altuviiio will be for mu patients who haven’t switched to hemlibra yet. a threat to hemlibra will be mim8.- perception that mim8 is more efficacious. but this was questioned once we started to discuss trial inclusion criteria.	competitive intelligence	competitive intelligence	International 8	Hemophilia
+169	crm_insights	Canada	Sadaf Mohseni	2025-02-02	--Unspecified--	Ms Vanessa Bouskill	's patient now requires psp nursing support (for a duration of 2 months only). rather than notifying easystart, she was asked to submit a new enrollment form. opportunity to streamline this process so it's less demanding on htc nurse.	's patient now requires psp nursing support (for a duration of 2 months only). rather than notifying easystart, she was asked to submit a new enrollment form. opportunity to streamline this process so it's less demanding on htc nurse.	psp nursing support	psp nursing support	International 8	Hemophilia
+170	crm_insights	Canada	Sadaf Mohseni	2025-02-02	Saint John Regional Hospital	Ms Shayne Mckay, Stephanie Daigle	had already worked with novo to prepare grant request. she indicated that roche and novo were the two companies she had approached for funding.	had already worked with novo to prepare grant request. she indicated that roche and novo were the two companies she had approached for funding.	grant request sent to novo	grant request sent to novo	International 8	Hemophilia
+171	crm_insights	Canada	Sadaf Mohseni	2025-02-02	--Unspecified--	Sue Vanoosten	expressed dissatisfaction of changing ad board date. request for roche to revisit as she would like to participate but has conflict for may 31.	expressed dissatisfaction of changing ad board date. request for roche to revisit as she would like to participate but has conflict for may 31.	disappointed with date change for ad board	disappointed with date change for ad board	International 8	Hemophilia
+172	crm_insights	Canada	Sheri vanGunst	2025-01-29	--Unspecified--	Julia Brooks	lawrence is no longer working in bleeding disorders and is no longer president of cphc. josie pilon is now president and  will stay on as past president.	lawrence is no longer working in bleeding disorders and is no longer president of cphc. josie pilon is now president and  will stay on as past president.	cphc	cphc	International 8	Hemophilia
+173	crm_insights	Canada	Sheri vanGunst	2025-01-28	University of Alberta Hospital	Adriana Koziac Carter, Ms Elia C Fong	potential topic for dinner ola during rendezvous - body image for people with bleeding disorders related to muscle atrophy from joint damage. the discussion evolved to include psychology informed physiotherapy.  has some experience with this through other work that she does in cf. another relate topic could be body building.	potential topic for dinner ola during rendezvous - body image for people with bleeding disorders related to muscle atrophy from joint damage. the discussion evolved to include psychology informed physiotherapy.  has some experience with this through other work that she does in cf. another relate topic could be body building.	medical education	medical education	International 8	Hemophilia
+174	crm_insights	Canada	Sadaf Mohseni	2025-01-27	--Unspecified--	Ms Vanessa Bouskill	shared that another company has already sent out invitations for an educational symposium on april 12th. while she can re-evaluate her attendance, she would prefer for the dates to change.	shared that another company has already sent out invitations for an educational symposium on april 12th. while she can re-evaluate her attendance, she would prefer for the dates to change.	ad board conflict	ad board conflict	International 8	Hemophilia
+175	crm_insights	Canada	Sadaf Mohseni	2025-01-27	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Ms Shamshah Aratia	laurence has departed the bd team at st. mike's. suspect that laura will be taking over his htc physio needs.	laurence has departed the bd team at st. mike's. suspect that laura will be taking over his htc physio needs.	physio at st. mike's	physio at st. mike's	International 8	Hemophilia
+176	crm_insights	Canada	Laura Pepler	2025-01-24	--Unspecified--	--Unspecified--	Byron will no longer be the Exec director for Hemophilia Ontario, effective Jan 20, 2025	Byron will no longer be the Exec director for Hemophilia Ontario, effective Jan 20, 2025	Hemophilia Ontario Exec Director	Hemophilia Ontario Exec Director	International 8	Hemophilia
+177	crm_insights	Canada	Laura Pepler	2025-01-22	--Unspecified--	--Unspecified--	Per the CDA patient group input for Altuviiio, there were 15 Canadian patients enrolled in the Phase III trial	Per the CDA patient group input for Altuviiio, there were 15 Canadian patients enrolled in the Phase III trial	Altuviiio Clinical Trial Patients in Canada	Altuviiio Clinical Trial Patients in Canada	International 8	Hemophilia
+178	crm_insights	Canada	Sadaf Mohseni	2025-01-19	Health Sciences North-Sudbury Regional Hospital	Dr Kulwant S Gill, Ms Jessica Lepage	tammy shared that the clinic could benefit from a roche educational session on managing patients with surgery. possibly to do a joint session with medical to review pipeline products with dr.	tammy shared that the clinic could benefit from a roche educational session on managing patients with surgery. possibly to do a joint session with medical to review pipeline products with dr.	education session	education session	International 8	Hemophilia
+179	crm_insights	Canada	Sadaf Mohseni	2025-01-19	--Unspecified--	Tammy Bourque	shared that the clinic could benefit from a roche educational session on managing patients with surgery. possibly to do a joint session with medical to review pipeline products with dr. gill	shared that the clinic could benefit from a roche educational session on managing patients with surgery. possibly to do a joint session with medical to review pipeline products with dr. gill	education session	education session	International 8	Hemophilia
+180	crm_insights	Canada	Sadaf Mohseni	2025-01-19	--Unspecified--	--Unspecified--	new nurse started at iwk on jan 13th. third nurse at this center in the last two years. opportunity for education session.	new nurse started at iwk on jan 13th. third nurse at this center in the last two years. opportunity for education session.	new nurse at iwk	new nurse at iwk	International 8	Hemophilia
+181	crm_insights	Canada	Sadaf Mohseni	2025-01-19	IWK Health Centre	Ms Amanda M E Bettle	the patient who was having epistaxis is now bruising and his ptt is elevated. concerned that he may have developed antibodies to the hemlibra.	the patient who was having epistaxis is now bruising and his ptt is elevated. concerned that he may have developed antibodies to the hemlibra.	patient experience on hemlibra	patient experience on hemlibra	International 8	Hemophilia
+182	crm_insights	Canada	Stephane Germain	2025-01-17	Centre Hospitalier Universitaire Sainte-Justine	Mme Sabrina Pelletier	dr. rivard confirmed finally his retirement. dre. natalie julia matthews will take the responsabilities of all hemophilia a and b at ste-justine	dr. rivard confirmed finally his retirement. dre. natalie julia matthews will take the responsabilities of all hemophilia a and b at ste-justine	new hematologist at ste-justine	new hematologist at ste-justine	International 8	Hemophilia
+183	crm_insights	Canada	Laura Pepler	2025-01-17	--Unspecified--	Dr Kathryn E Webert, Mr Sylvain Grenier	cbs has submitted a proposal for funding 3 pharmacists to cover 4 htcs in alberta.	cbs has submitted a proposal for funding 3 pharmacists to cover 4 htcs in alberta.	cbs pharmacist program expansion in alberta	cbs pharmacist program expansion in alberta	International 8	Hemophilia
+184	crm_insights	Canada	Laura Pepler	2025-01-17	--Unspecified--	Dr Kathryn E Webert, Mr Sylvain Grenier	rfp process not designed to compare clinical efficacy. clinical efficacy superiority will be based on cda assessment/report	rfp process not designed to compare clinical efficacy. clinical efficacy superiority will be based on cda assessment/report	clinical efficacy in rfp process	clinical efficacy in rfp process	International 8	Hemophilia
+185	crm_insights	Canada	Laura Pepler	2025-01-17	--Unspecified--	Dr Kathryn E Webert, Mr Sylvain Grenier	hcps with non-severe patients included in the haven 6 trial could apply for cbs coverage based on same criteria being used to evaluate all other non-severe patients. assessment would be based on bleeding phenotype prior to entering the study.	hcps with non-severe patients included in the haven 6 trial could apply for cbs coverage based on same criteria being used to evaluate all other non-severe patients. assessment would be based on bleeding phenotype prior to entering the study.	cbs coverage for haven 6 patients	cbs coverage for haven 6 patients	International 8	Hemophilia
+186	crm_insights	Canada	Sadaf Mohseni	2025-01-12	--Unspecified--	--Unspecified--	Sue was very happy with the nursing support that the PSP provided to ensure her patient would receive treatment on time.	Sue was very happy with the nursing support that the PSP provided to ensure her patient would receive treatment on time.	Positive feedback on PSP	Positive feedback on PSP	International 8	Hemophilia
+187	crm_insights	Canada	Sadaf Mohseni	2025-01-12	LHSC-London Health Sciences Centre-Admin - LHSC-Victoria Hospital	Dr Chai W Phua	attending eahad to present a poster on emicizumab use. interested in funding additional colleagues to attend with him.	attending eahad to present a poster on emicizumab use. interested in funding additional colleagues to attend with him.	eahad poster and attendance	eahad poster and attendance	International 8	Hemophilia
+188	crm_insights	Canada	Sadaf Mohseni	2025-01-12	--Unspecified--	Sue Vanoosten	was very happy with the nursing support that the psp provided to ensure her patient would receive treatment on time.	was very happy with the nursing support that the psp provided to ensure her patient would receive treatment on time.	positive feedback on psp	positive feedback on psp	International 8	Hemophilia
+189	crm_insights	Canada	Sadaf Mohseni	2025-01-04	--Unspecified--	Susie Ostrowski	management of emicizumab patients can be confusing as there are no guidelines or platform to capture what other centers are doing.	management of emicizumab patients can be confusing as there are no guidelines or platform to capture what other centers are doing.	gap in learning from other centers	gap in learning from other centers	International 8	Hemophilia
+190	crm_insights	Canada	Sadaf Mohseni	2025-01-04	--Unspecified--	Sue Vanoosten	consensus for psp nurse to deliver drug, to  and dr. robinson's patient, each week upon injection training.	consensus for psp nurse to deliver drug, to  and dr. robinson's patient, each week upon injection training.	drug delivery to patient's house	drug delivery to patient's house	International 8	Hemophilia
+191	crm_insights	Canada	Sadaf Mohseni	2025-01-04	UHT-Unity Health Toronto-Admin - UHT-St Michael's Hospital	Dr Michelle Sholzberg, Ms Shamshah Aratia	looking to new innovative models of care in clinic to improve efficiency (e.g. use of patient focused materials, tools for our nursing colleagues). directed to frt.	looking to new innovative models of care in clinic to improve efficiency (e.g. use of patient focused materials, tools for our nursing colleagues). directed to frt.	need for additional improvements to htc model	need for additional improvements to htc model	International 8	Hemophilia`;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const appState = {
+        insights: [],
+        charts: {}
+    };
+
+    function parseTSV(data) {
+        const lines = data.trim().split('\n');
+        const headers = lines[0].split('\t').map(h => h.trim());
+        return lines.slice(1).map(line => {
+            const values = line.split('\t');
+            return headers.reduce((obj, header, i) => {
+                obj[header] = values[i] ? values[i].trim() : '';
+                return obj;
+            }, {});
+        });
+    }
+
+    function createInsightCard(insight) {
+        const template = document.getElementById('insight-card-template');
+        const card = template.content.cloneNode(true).firstElementChild;
+        card.querySelector('h4').textContent = insight['title translated'] || 'Untitled Insight';
+        card.querySelector('p').textContent = insight['text translated'];
+        card.querySelector('.hcp').textContent = insight['hcp account'];
+        card.querySelector('.date').textContent = insight['created date'];
+        return card;
+    }
+    
+    function navigateTo(tabName) {
+        const contentArea = document.getElementById('content-area');
+        const template = document.getElementById(`${tabName}-template`);
+        contentArea.innerHTML = '';
+        contentArea.appendChild(template.content.cloneNode(true));
+        
+        document.querySelectorAll('.nav-button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tabName);
+            btn.classList.toggle('border-transparent', btn.dataset.tab !== tabName);
+        });
+
+        switch (tabName) {
+            case 'overview':
+                renderOverview();
+                break;
+            case 'therapy':
+                renderTherapyLandscape();
+                break;
+            case 'practice':
+                renderClinicalPractice();
+                break;
+            case 'education':
+                renderEducation();
+                break;
+            case 'explorer':
+                renderExplorer();
+                break;
+        }
+    }
+
+    function renderOverview() {
+        const insights = appState.insights;
+        const uniqueHCPs = new Set(insights.map(i => i['hcp account']).filter(h => h && h !== '--Unspecified--'));
+        const uniqueHCOs = new Set(insights.map(i => i['hco account']).filter(h => h && h !== '--Unspecified--'));
+
+        document.getElementById('total-insights').textContent = insights.length;
+        document.getElementById('unique-hcps').textContent = uniqueHCPs.size;
+        document.getElementById('unique-hcos').textContent = uniqueHCOs.size;
+        
+        const dates = insights.map(i => new Date(i['created date'])).sort((a,b) => a - b);
+        const firstDate = dates[0];
+        const lastDate = dates[dates.length-1];
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        document.getElementById('time-period').textContent = `${monthNames[firstDate.getMonth()]} - ${monthNames[lastDate.getMonth()]} ${firstDate.getFullYear()}`;
+
+        renderInsightsByMonthChart();
+        renderTopTopicsChart();
+    }
+    
+    function destroyChart(chartId) {
+        if (appState.charts[chartId]) {
+            appState.charts[chartId].destroy();
+            delete appState.charts[chartId];
+        }
+    }
+
+    function renderInsightsByMonthChart() {
+        destroyChart('insightsByMonth');
+        const ctx = document.getElementById('insightsByMonthChart').getContext('2d');
+        const monthCounts = appState.insights.reduce((acc, insight) => {
+            const month = new Date(insight['created date']).getMonth();
+            acc[month] = (acc[month] || 0) + 1;
+            return acc;
+        }, {});
+
+        const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"];
+        const data = labels.map((_, i) => monthCounts[i] || 0);
+
+        appState.charts.insightsByMonth = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Number of Insights',
+                    data: data,
+                    backgroundColor: 'rgba(249, 115, 22, 0.6)',
+                    borderColor: 'rgba(249, 115, 22, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Count' } },
+                    x: { title: { display: true, text: 'Month (2025)' } }
+                },
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        color: '#4A4A4A',
+                        anchor: 'end',
+                        align: 'top',
+                        formatter: (value) => value
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTopTopicsChart() {
+        destroyChart('topTopics');
+        const ctx = document.getElementById('topTopicsChart').getContext('2d');
+        const keywords = ['altuviiio', 'physical activity', 'gene therapy', 'preceptorship', 'switch', 'data', 'patient', 'mim8', 'education', 'funding', 'isth', 'ash', 'surgery', 'psp'];
+        const topicCounts = keywords.reduce((acc, key) => ({...acc, [key]: 0}), {});
+
+        appState.insights.forEach(insight => {
+            const title = (insight['title translated'] || '').toLowerCase();
+            const text = (insight['text translated'] || '').toLowerCase();
+            keywords.forEach(key => {
+                if (title.includes(key) || text.includes(key)) {
+                    topicCounts[key]++;
+                }
+            });
+        });
+        
+        const sortedTopics = Object.entries(topicCounts).sort(([,a],[,b]) => b-a).slice(0, 15);
+
+        appState.charts.topTopics = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedTopics.map(item => item[0].charAt(0).toUpperCase() + item[0].slice(1)),
+                datasets: [{
+                    label: 'Mentions',
+                    data: sortedTopics.map(item => item[1]),
+                    backgroundColor: 'rgba(249, 115, 22, 0.6)',
+                    borderColor: 'rgba(249, 115, 22, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { beginAtZero: true, title: { display: true, text: 'Number of Mentions' } } },
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        color: '#4A4A4A',
+                        anchor: 'end',
+                        align: 'end',
+                        formatter: (value) => value
+                    }
+                }
+            }
+        });
+    }
+
+    function renderTherapyLandscape(filter = 'All') {
+         const filterKeywords = {
+            'Emicizumab': ['emicizumab', 'hemlibra'],
+            'Altuviiio': ['altuviiio', 'biv', 'aluviiio'],
+            'Gene Therapy': ['gene therapy', 'spk-8011qq', 'gt'],
+            'Mim8': ['mim8', 'me 8'],
+            'Switching': ['switch']
+        };
+
+        const grid = document.getElementById('therapy-insights-grid');
+        grid.innerHTML = '';
+        
+        let filteredInsights;
+        if (filter === 'All') {
+            const allKeywords = Object.values(filterKeywords).flat();
+            filteredInsights = appState.insights.filter(i => 
+                allKeywords.some(kw => i['text translated'].toLowerCase().includes(kw) || i['title translated'].toLowerCase().includes(kw))
+            );
+        } else {
+            const keywords = filterKeywords[filter];
+            filteredInsights = appState.insights.filter(i => 
+                keywords.some(kw => i['text translated'].toLowerCase().includes(kw) || i['title translated'].toLowerCase().includes(kw))
+            );
+        }
+        
+        const uniqueHCPs = new Set(filteredInsights.map(i => i['hcp account']).filter(h => h && h !== '--Unspecified--'));
+        const uniqueHCOs = new Set(filteredInsights.map(i => i['hco account']).filter(h => h && h !== '--Unspecified--'));
+        
+        document.getElementById('therapy-total-insights').textContent = filteredInsights.length;
+        document.getElementById('therapy-unique-hcps').textContent = uniqueHCPs.size;
+        document.getElementById('therapy-unique-hcos').textContent = uniqueHCOs.size;
+
+
+        filteredInsights.forEach(insight => grid.appendChild(createInsightCard(insight)));
+
+        renderTherapySentimentChart(filteredInsights);
+
+        document.querySelectorAll('#therapy-filters button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.therapy === filter);
+        });
+    }
+    
+    function renderTherapySentimentChart(insights) {
+        destroyChart('therapySentiment');
+        const ctx = document.getElementById('therapy-sentiment-chart').getContext('2d');
+
+        const themes = {
+            "Clinical Use/Experience": ['use in', 'patients on', 'experience', 'dosing', 'outcomes'],
+            "Competition/Switching": ['switch', 'altuviiio', 'mim8', 'threat'],
+            "Data Gaps/Requests": ['data', 'request', 'unmet need', 'guidelines'],
+            "Patient Populations": ['mild', 'moderate', 'infants', 'pups', 'women'],
+            "Positive Feedback": ['positive', 'satisfied', 'life changing', 'happy'],
+        };
+
+        const themeCounts = Object.keys(themes).reduce((acc, theme) => ({...acc, [theme]: 0}), {});
+        let totalCategorized = 0;
+
+        insights.forEach(insight => {
+            const content = (insight['title translated'] + ' ' + insight['text translated']).toLowerCase();
+            let categorized = false;
+            for(const theme in themes) {
+                if(themes[theme].some(kw => content.includes(kw))) {
+                    themeCounts[theme]++;
+                    categorized = true;
+                    break;
+                }
+            }
+            if(categorized) totalCategorized++;
+        });
+        
+        const chartData = totalCategorized > 0 ? Object.values(themeCounts) : [1];
+        const chartLabels = totalCategorized > 0 ? Object.keys(themeCounts) : ['No specific themes identified'];
+
+        appState.charts.therapySentiment = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: chartLabels,
+                datasets: [{
+                    label: 'Insight Themes',
+                    data: chartData,
+                    backgroundColor: ['#EA580C', '#F97316', '#FDBA74', '#FED7AA', '#FFEDD5'],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    datalabels: {
+                        color: '#4A4A4A',
+                        formatter: (value, context) => {
+                            if (value === 0) return '';
+                            return value;
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: 14
+                        },
+                        textAlign: 'center',
+                        textStrokeColor: '#fff',
+                        textStrokeWidth: 2,
+                    },
+                    title: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    function renderClinicalPractice() {
+        const accordionContainer = document.getElementById('practice-accordion');
+        accordionContainer.innerHTML = '';
+
+        const topics = {
+            'Physical Activity': {
+                keywords: ['physical activity', 'sports', 'collision', 'activities'],
+                summary: `
+                    <p>There's a significant focus on providing better, evidence-based guidance for physically active patients on modern therapies.</p>
+                    <ul>
+                        <li><strong>Data Gap:</strong> HCPs identify a lack of updated guidelines for physical activity, moving beyond expert consensus to data-backed advice.</li>
+                        <li><strong>Research Interest:</strong> Strong interest in research projects analyzing collision impact, correlating activity with bleeds using accelerometers, and surveying patient activities.</li>
+                        <li><strong>Switching Driver:</strong> Some patients on Hemlibra are considered for switching to Altuviiio for the perceived confidence that "peak and trough levels" provide during high-risk activities.</li>
+                    </ul>
+                `
+            },
+            'Surgery Management': {
+                keywords: ['surgery'],
+                summary: `
+                    <p>HCPs express comfort but also a desire for more data regarding surgery management for patients on emicizumab.</p>
+                    <ul>
+                        <li><strong>Current Practice:</strong> Some centers, like London, administer factor pre-surgery for all minor procedures for patients on Hemlibra.</li>
+                        <li><strong>Data Request:</strong> Strong interest in future data related to surgical outcomes for patients on emicizumab.</li>
+                    </ul>
+                `
+            },
+            'Patient Populations (Mild/Infants)': {
+                keywords: ['mild', 'moderate', 'infants', 'pups'],
+                summary: `
+                    <p>Specific patient populations present unique considerations and data needs for HCPs.</p>
+                    <ul>
+                        <li><strong>Mild Hemophilia:</strong> Uncertainty exists on using emicizumab in patients with >10% FVIII. Convincing data on increased hemostatic potential is needed. There's also confusion around funding criteria for this group.</li>
+                        <li><strong>Infants/PUPs:</strong> Some HCPs are hesitant to use emicizumab in infants without personal clinical trial experience and have concerns about efficacy with lower FIX levels. Others see it as the new standard of care for newly diagnosed babies. A need for smaller vial sizes (e.g., 12mg) for PUPs was identified.</li>
+                    </ul>
+                `
+            },
+            'Patient Support & Resources': {
+                keywords: ['psp', 'resources', 'kits', 'app', 'booklet'],
+                summary: `
+                    <p>There is generally positive feedback on existing resources, but also clear requests for improvements and new tools.</p>
+                    <ul>
+                        <li><strong>PSP Feedback:</strong> Mostly positive, with HCPs happy with nursing support. However, issues like PSP availability in remote areas and cumbersome processes for requesting short-term support were noted. A training gap for PSPs on acquired hemophilia was also identified.</li>
+                        <li><strong>Resource Needs:</strong> Requests include a QR code for an SC administration video, a one-pager for a bleed recognition algorithm (HIRT app), and tools to help patients assess bleeds.</li>
+                        <li><strong>Logistical Challenges:</strong> Shortages of injection kits, challenges with a new payment system, and delivery delays due to mandatory signatures were reported.</li>
+                    </ul>
+                `
+            }
+        };
+
+        Object.entries(topics).forEach(([title, { keywords, summary }]) => {
+            const template = document.getElementById('accordion-item-template');
+            const item = template.content.cloneNode(true).firstElementChild;
+            item.querySelector('span').textContent = title;
+            item.querySelector('.summary').innerHTML = summary;
+            
+            const insightsContainer = item.querySelector('.insights-container');
+            const relevantInsights = appState.insights.filter(i =>
+                keywords.some(kw => (i['text translated'] + i['title translated']).toLowerCase().includes(kw))
+            );
+            relevantInsights.forEach(insight => {
+                 const card = createInsightCard(insight);
+                 card.classList.add('border');
+                 insightsContainer.appendChild(card);
+            });
+
+            accordionContainer.appendChild(item);
+        });
+    }
+
+    function renderEducation() {
+        const insightsList = document.getElementById('education-insights-list');
+        insightsList.innerHTML = '';
+        const keywords = ['preceptorship', 'isth', 'ash', 'conference', 'education', 'lounge', 'symposium', 'ola', 'ad board'];
+        const educationInsights = appState.insights.filter(i =>
+            keywords.some(kw => (i['text translated'] + i['title translated']).toLowerCase().includes(kw))
+        );
+        educationInsights.forEach(insight => {
+            const card = createInsightCard(insight);
+            card.classList.add('border');
+            insightsList.appendChild(card);
+        });
+    }
+
+    function renderExplorer() {
+        const insights = appState.insights;
+        const hcpFilter = document.getElementById('hcp-filter');
+        const hcoFilter = document.getElementById('hco-filter');
+
+        const uniqueHCPs = [...new Set(insights.map(i => i['hcp account']).filter(Boolean))].sort();
+        const uniqueHCOs = [...new Set(insights.map(i => i['hco account']).filter(Boolean))].sort();
+
+        hcpFilter.innerHTML = '<option value="">Filter by HCP</option>';
+        hcoFilter.innerHTML = '<option value="">Filter by HCO</option>';
+        uniqueHCPs.forEach(hcp => {
+            if (hcp !== '--Unspecified--') {
+                const option = document.createElement('option');
+                option.value = hcp;
+                option.textContent = hcp;
+                hcpFilter.appendChild(option);
+            }
+        });
+         uniqueHCOs.forEach(hco => {
+             if (hco !== '--Unspecified--') {
+                const option = document.createElement('option');
+                option.value = hco;
+                option.textContent = hco;
+                hcoFilter.appendChild(option);
+            }
+        });
+        
+        applyExplorerFilters();
+    }
+    
+    function applyExplorerFilters() {
+        const searchVal = document.getElementById('search-input').value.toLowerCase();
+        const hcpVal = document.getElementById('hcp-filter').value;
+        const hcoVal = document.getElementById('hco-filter').value;
+        const list = document.getElementById('explorer-list');
+        list.innerHTML = '';
+
+        const filteredInsights = appState.insights.filter(i => {
+            const matchesSearch = !searchVal || 
+                i['text translated'].toLowerCase().includes(searchVal) ||
+                i['title translated'].toLowerCase().includes(searchVal);
+            const matchesHCP = !hcpVal || i['hcp account'] === hcpVal;
+            const matchesHCO = !hcoVal || i['hco account'] === hcoVal;
+            return matchesSearch && matchesHCP && matchesHCO;
+        });
+
+        document.getElementById('explorer-count').textContent = `Showing ${filteredInsights.length} of ${appState.insights.length} insights.`;
+        filteredInsights.forEach(insight => list.appendChild(createInsightCard(insight)));
+    }
+
+
+    function setupEventListeners() {
+        document.querySelector('nav').addEventListener('click', (e) => {
+            const target = e.target.closest('.nav-button');
+            if (target && target.dataset.tab) {
+                navigateTo(target.dataset.tab);
+            }
+        });
+
+        document.body.addEventListener('click', (e) => {
+             if (e.target.matches('#therapy-filters button')) {
+                renderTherapyLandscape(e.target.dataset.therapy);
+            }
+            if (e.target.closest('#practice-accordion button')) {
+                const button = e.target.closest('#practice-accordion button');
+                const content = button.nextElementSibling;
+                const icon = button.querySelector('span:last-child');
+                content.classList.toggle('hidden');
+                icon.classList.toggle('rotate-45');
+            }
+        });
+        
+        document.body.addEventListener('input', (e) => {
+             if (e.target.matches('#search-input, #hcp-filter, #hco-filter')) {
+                applyExplorerFilters();
+            }
+        });
+    }
+
+    function init() {
+        appState.insights = parseTSV(tsvData);
+        setupEventListeners();
+        navigateTo('overview');
+    }
+
+    init();
+});
+</script>
+</body>
+</html>
